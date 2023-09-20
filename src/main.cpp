@@ -7,38 +7,39 @@
 /*                                                                            */
 /*----------------------------------------------------------------------------*/
 #include "vex.h"
+#include "better_motor_group.h"
 
 using namespace vex;
 
 // A global instance of vex::brain used for printing to the V5 brain screen
 brain       Brain;
 controller  Controller1;
-motor       RightMotor1(PORT4);
-motor       RightMotor2(PORT5);
-motor       RightMotor3(PORT6);
-motor       LeftMotor1(PORT7, true);
-motor       LeftMotor2(PORT8, true);
-motor       LeftMotor3(PORT9, true);
+
+// Drive motors
+int32_t rightPorts[] = {PORT4, PORT5, PORT6};
+int32_t leftPorts[] = {PORT7, PORT8, PORT9};
+BetterMotorGroup RightMotors(rightPorts, 3);
+BetterMotorGroup LeftMotors(leftPorts, 3);
+
 motor       CataMotor(PORT10);
 limit       CataSwitch(Brain.ThreeWirePort.A);
 
-// define your global instances of motors and other devices here
 bool switchPressed = false;
 
-// create a task that handles catapult logic 
+// cata logic task cause i dont feel like writing real code
 int cataTask() {
     while (true){
         if (Controller1.ButtonA.pressing()){
             if (switchPressed && !CataSwitch.pressing())
                 switchPressed = false;
-            CataMotor.spin(vex::directionType::fwd, 100, vex::velocityUnits::pct);
+            CataMotor.spin(fwd, 100, pct);
         } else {
-            CataMotor.stop(vex::brakeType::hold);
+            CataMotor.stop(hold);
         }
 
         if (CataSwitch.pressing() && !switchPressed){
             switchPressed = true;
-            CataMotor.stop(vex::brakeType::hold);
+            CataMotor.stop(hold);
             task::sleep(1000);
         }
     }
@@ -46,19 +47,16 @@ int cataTask() {
 }
 
 int main() {
-    // run the cata task
-    vex::task t(cataTask);
+    // Configure some other stuff
+    LeftMotors.setReversed(true);
+    LeftMotors.setStopping(brake);
+    RightMotors.setStopping(brake);
+
+    // Start tasks
+    task t(cataTask);
 
     while(1) {
-        int left = Controller1.Axis3.position();
-        int right = Controller1.Axis2.position();
-
-        LeftMotor1.spin(vex::directionType::fwd, left, vex::velocityUnits::pct);
-        LeftMotor2.spin(vex::directionType::fwd, left, vex::velocityUnits::pct);
-        LeftMotor3.spin(vex::directionType::fwd, left, vex::velocityUnits::pct);
-
-        RightMotor1.spin(vex::directionType::fwd, right, vex::velocityUnits::pct);
-        RightMotor2.spin(vex::directionType::fwd, right, vex::velocityUnits::pct);
-        RightMotor3.spin(vex::directionType::fwd, right, vex::velocityUnits::pct);
+        RightMotors.spin(fwd, Controller1.Axis2.position(), pct);
+        LeftMotors.spin(fwd, Controller1.Axis3.position(), pct);
     }
 }
