@@ -8,6 +8,8 @@ using namespace vex;
 extern const controller* Controller1;
 
 AutonSelector::AutonSelector() {}
+
+// Creates a new auton selector menu
 AutonSelector::AutonSelector(string names[], void(Auton::*callback[])()) {
     for (int i = 0; i < 10; i++) {
         this->names[i] = names[i];
@@ -46,7 +48,7 @@ void AutonSelector::run(bool competitionMode){
     bool draw = true;
 
     int lastPress = 0;
-    const int delay = 120;
+    const int delay = 120; // How long a button must be held before it repeats
 
     // Three items / page
     // infinate number of pages, use mod to get the page & item
@@ -63,7 +65,7 @@ void AutonSelector::run(bool competitionMode){
             for (int i = 0; i < 3; i++){
                 int item = (page * 3) + i;
                 if (names[item] != ""){
-                    if (item == selected){
+                    if (item == selected){ // Show a arrow before the selected option
                         Controller1->Screen.print("-> ");
                     } else {
                         Controller1->Screen.print("   ");
@@ -75,7 +77,7 @@ void AutonSelector::run(bool competitionMode){
             }
         }
 
-        // Check for button presses
+        // Check if the buttons have been pressed with a <delay> second cooldown
         if (Controller1->ButtonUp.pressing() && lastPress + delay < Brain->Timer.time(msec)){
             lastPress = Brain->Timer.time(msec);
             if (selected > 0){

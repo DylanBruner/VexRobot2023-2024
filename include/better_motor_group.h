@@ -8,9 +8,12 @@ class BetterMotorGroup {
     public:
         motor* motors[10];
 
-        // BetterMotorGroup constructor takes in a array of int's (motor ports)
+        /*
+            Create a "BetterMotorGroup"
+            This is used so we can group more than two motors together,
+            this is needed because vex only supports motor groups of two motors.
+        */
         BetterMotorGroup(int32_t ports [], int numMotors) {
-            // Resize the motor array to the number of motors
             for (int i = 0; i < numMotors; i++) {
                 motors[i] = new motor(ports[i]);
             }
