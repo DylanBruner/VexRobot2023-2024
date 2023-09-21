@@ -8,6 +8,8 @@
 /*----------------------------------------------------------------------------*/
 #include "vex.h"
 #include "better_motor_group.h"
+#include "autonselector.h"
+#include "auton.h"
 
 using namespace vex;
 
@@ -21,8 +23,8 @@ int32_t leftPorts[] = {PORT7, PORT8, PORT9};
 BetterMotorGroup RightMotors(rightPorts, 3);
 BetterMotorGroup LeftMotors(leftPorts, 3);
 
-motor       CataMotor(PORT10);
-limit       CataSwitch(Brain.ThreeWirePort.A);
+motor CataMotor(PORT10);
+limit CataSwitch(Brain.ThreeWirePort.A);
 
 bool switchPressed = false;
 
@@ -43,7 +45,7 @@ int cataTask() {
             task::sleep(1000);
         }
     }
-    return(0);
+    return 0;
 }
 
 int main() {
@@ -52,11 +54,21 @@ int main() {
     LeftMotors.setStopping(brake);
     RightMotors.setStopping(brake);
 
-    // Start tasks
-    task t(cataTask);
+    AutonSelector selector = AutonSelector();
+    selector.setupDevices(&Controller1, &Brain, &CataMotor, &CataSwitch);
+    selector.addAuton("Left Auton", &Auton::leftAuton);
+    selector.addAuton("Left Auton1", &Auton::leftAuton);
+    selector.addAuton("Left Auton2", &Auton::leftAuton);
+    selector.addAuton("Left Auton3", &Auton::leftAuton);
+    selector.addAuton("Left Auton4", &Auton::leftAuton);
+    
+    selector.run();
 
-    while(1) {
-        RightMotors.spin(fwd, Controller1.Axis2.position(), pct);
-        LeftMotors.spin(fwd, Controller1.Axis3.position(), pct);
-    }
+    // Start tasks
+    // task t(cataTask);
+
+    // while(1) {
+        // RightMotors.spin(fwd, Controller1.Axis2.position(), pct);
+        // LeftMotors.spin(fwd, Controller1.Axis3.position(), pct);
+    // }
 }

@@ -1,5 +1,7 @@
 #include "vex.h"
 
+#pragma once
+
 using namespace vex;
 
 class BetterMotorGroup {
