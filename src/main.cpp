@@ -48,6 +48,16 @@ int cataTask() {
     return 0;
 }
 
+void driver(){
+    // Start the cata task
+    task t(cataTask);
+
+    while(1) {
+        RightMotors.spin(fwd, Controller1.Axis2.position(), pct);
+        LeftMotors.spin(fwd, Controller1.Axis3.position(), pct);
+    }
+}
+
 int main() {
     // Configure some other stuff
     LeftMotors.setReversed(true);
@@ -55,7 +65,10 @@ int main() {
     RightMotors.setStopping(brake);
 
     AutonSelector selector = AutonSelector();
+    // AutonSelector selector();
+    selector.setCompetitionMode(false);
     selector.setupDevices(&Controller1, &Brain, &CataMotor, &CataSwitch);
+    selector.setDriver(&driver);
     selector.addAuton("Left Auton", &Auton::leftAuton);
     selector.addAuton("Left Auton1", &Auton::leftAuton);
     selector.addAuton("Left Auton2", &Auton::leftAuton);
@@ -63,12 +76,4 @@ int main() {
     selector.addAuton("Left Auton4", &Auton::leftAuton);
     
     selector.run();
-
-    // Start tasks
-    // task t(cataTask);
-
-    // while(1) {
-        // RightMotors.spin(fwd, Controller1.Axis2.position(), pct);
-        // LeftMotors.spin(fwd, Controller1.Axis3.position(), pct);
-    // }
 }

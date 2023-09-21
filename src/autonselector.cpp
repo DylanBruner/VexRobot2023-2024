@@ -15,6 +15,10 @@ AutonSelector::AutonSelector(string names[], void(Auton::*callback[])()) {
     }
 }
 
+void AutonSelector::setCompetitionMode(bool competitionMode) {
+    this->competitionMode = competitionMode;
+}
+
 void AutonSelector::setupDevices(controller* c, brain* b, motor* cataMotor, limit* cataSwitch) {
     Controller1 = c;
     Brain = b;
@@ -22,7 +26,9 @@ void AutonSelector::setupDevices(controller* c, brain* b, motor* cataMotor, limi
     CataSwitch = cataSwitch;
 }
 
-
+void AutonSelector::setDriver(void(*driver)()) {
+    this->driver = driver;
+}
 
 void AutonSelector::addAuton(string name, void(Auton::*callback)()) {
     for (int i = 0; i < 10; i++) {
@@ -84,7 +90,10 @@ void AutonSelector::run(bool competitionMode){
             }
         } else if (Controller1->ButtonA.pressing()){
             Controller1->Screen.clearScreen();
+            // Auton func
             (Auton(this->Controller1, this->Brain, this->CataMotor, this->CataSwitch).*callback[(page * 3) + selected])();
+            // Driver func
+            this->driver();
             return;
         }
     }
