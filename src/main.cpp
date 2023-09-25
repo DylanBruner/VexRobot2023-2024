@@ -18,8 +18,8 @@ brain       Brain;
 controller  Controller1;
 
 // Drive motors
-int32_t rightPorts[] = {PORT4, PORT5, PORT6};
-int32_t leftPorts[] = {PORT7, PORT8, PORT9};
+int32_t rightPorts[] = {PORT7, PORT17, PORT20};
+int32_t leftPorts[] = {PORT8, PORT11, PORT12};
 BetterMotorGroup RightMotors(rightPorts, 3);
 BetterMotorGroup LeftMotors(leftPorts, 3);
 
