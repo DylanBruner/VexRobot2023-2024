@@ -18,12 +18,13 @@ brain       Brain;
 controller  Controller1;
 
 // Drive motors
-int32_t rightPorts[] = {PORT7, PORT17, PORT20};
-int32_t leftPorts[] = {PORT8, PORT11, PORT12};
+int32_t rightPorts[] = {PORT20, PORT17, PORT9};//20
+int32_t leftPorts[] = {PORT6, PORT12, PORT11};
 BetterMotorGroup RightMotors(rightPorts, 3);
 BetterMotorGroup LeftMotors(leftPorts, 3);
 
-motor CataMotor(PORT10);
+motor CataMotor(PORT5);
+motor WinchMotor(PORT3);
 limit CataSwitch(Brain.ThreeWirePort.A);
 
 bool switchPressed = false;
@@ -63,7 +64,7 @@ int main() {
     LeftMotors.setReversed(true);
     LeftMotors.setStopping(brake);
     RightMotors.setStopping(brake);
-
+    
     AutonSelector selector = AutonSelector();
     // AutonSelector selector();
     selector.setCompetitionMode(false);
