@@ -13,7 +13,7 @@ class BetterMotorGroup {
             This is used so we can group more than two motors together,
             this is needed because vex only supports motor groups of two motors.
         */
-        BetterMotorGroup(int32_t ports [], int numMotors) {
+        BetterMotorGroup(int32_t ports[], int numMotors) {
             for (int i = 0; i < numMotors; i++) {
                 motors[i] = new motor(ports[i]);
             }
