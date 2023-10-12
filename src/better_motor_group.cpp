@@ -19,7 +19,11 @@ void BetterMotorGroup::spin(directionType dir, double velocity, percentUnits uni
 void BetterMotorGroup::spinFor(directionType dir, double rotation, rotationUnits units, double velocity, velocityUnits units2, bool waitForCompletion = false) {
     for (int i = 0; i < 10; i++) {
         if (motors[i] != NULL) {
-            motors[i]->spinFor(dir, rotation, units, velocity, units2, waitForCompletion);
+            if (i == 3){
+                motors[i]->spinFor(dir, rotation, units, velocity, units2, false);
+            } else {
+                motors[i]->spinFor(dir, rotation, units, velocity, units2, waitForCompletion);
+            }
         }
     }
 }
