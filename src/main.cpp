@@ -15,23 +15,32 @@ using namespace vex;
 brain       Brain;
 controller  Controller1;
 
+const int LEFT_FRONT = PORT7;
+const int LEFT_MIDDLE = PORT21;
+const int LEFT_BACK = PORT10;
+const int RIGHT_FRONT = PORT8;
+const int RIGHT_MIDDLE = PORT18;
+const int RIGHT_BACK = PORT19;
+const int CATA_PORT = PORT6;
+const int WINCH_PORT = PORT4;
+
 // Drive motors
-int32_t rightPorts[] = {PORT20, PORT17, PORT9};//20
-int32_t leftPorts[] = {PORT6, PORT12, PORT11};
+int32_t rightPorts[] = {RIGHT_FRONT, RIGHT_MIDDLE, RIGHT_BACK};//20
+int32_t leftPorts[] = {LEFT_FRONT, LEFT_MIDDLE, LEFT_BACK};
 // all blue motors
-motor leftFront = motor(PORT6, gearSetting::ratio6_1);
-motor leftMiddle = motor(PORT12, gearSetting::ratio6_1);
-motor leftBack = motor(PORT11, gearSetting::ratio6_1);
-motor rightFront = motor(PORT20, gearSetting::ratio6_1);
-motor rightMiddle = motor(PORT17, gearSetting::ratio6_1);
-motor rightBack = motor(PORT9, gearSetting::ratio6_1);
+motor leftFront = motor(LEFT_FRONT, gearSetting::ratio6_1);
+motor leftMiddle = motor(LEFT_MIDDLE, gearSetting::ratio6_1);
+motor leftBack = motor(LEFT_BACK, gearSetting::ratio6_1);
+motor rightFront = motor(RIGHT_FRONT, gearSetting::ratio6_1);
+motor rightMiddle = motor(RIGHT_MIDDLE, gearSetting::ratio6_1);
+motor rightBack = motor(RIGHT_BACK, gearSetting::ratio6_1);
 BetterMotorGroup RightMotors(rightPorts, 3);
 BetterMotorGroup LeftMotors(leftPorts, 3);
 
 // Other motors
-motor CataMotor(PORT5);
-motor WinchMotor(PORT8);
-limit CataSwitch(Brain.ThreeWirePort.G);
+motor CataMotor(CATA_PORT);
+motor WinchMotor(WINCH_PORT, gearSetting::ratio36_1);
+limit CataSwitch(Brain.ThreeWirePort.A);
 digital_out BackArm(Brain.ThreeWirePort.H);
 
 // Auton variables
@@ -81,6 +90,17 @@ void stopDrive(){
     rightFront.stop();
     rightBack.stop();
     rightMiddle.stop();
+
+
+}
+
+void resetTracking(){
+    leftFront.resetPosition();
+    leftBack.resetPosition();
+    leftMiddle.resetPosition();
+    rightFront.resetPosition();
+    rightBack.resetPosition();
+    rightMiddle.resetPosition();
 }
 
 // this needs code added to it that makes sure the values stay near each other
@@ -205,6 +225,23 @@ void descoreAuton(){
     drive(-50000, 50000, 12);
 }
 
+void pushInAndDescore(){
+    // drive(1400, 1400, 7);
+    // drive(800, 0, 7);
+    // drive(100, 100, 7);
+    // BackArm.set(true);
+
+    drive(-300, -300, 3); // line up with the line parallel to the goal
+    drive(-200, 200); // turn to be parallel with the corner thingy
+    resetTracking();
+    drive(-390, -390);
+    drive(300, -300);
+    BackArm.set(true);
+    resetTracking();
+    drive(-200, -350);
+    drive(-300, 300, 12);
+}
+
 // End of auton code ==========================================================================
 
 // Driver Code ================================================================================
@@ -221,7 +258,7 @@ void driver(){
         // Cata
         if (Controller1.ButtonY.pressing()){
             CataMotor.spin(reverse, 12, volt);
-        } else if (!Controller1.ButtonR1.pressing()){
+        } else if (!Controller1.ButtonR1.pressing() && !Controller1.ButtonB.pressing()){
             CataMotor.stop();
         }
 
@@ -254,10 +291,14 @@ int main() {
     RightMotors.setStopping(brake);
     CataMotor.setStopping(hold);
 
-    AutonSelector selector = AutonSelector();
-    selector.setCompetitionMode(true);
-    selector.setDriver(driver);
-    selector.addAuton(pushInAuton, "Push In");
-    selector.addAuton(descoreAuton, "Descorer");
-    selector.run(&Controller1, &Brain);
+    driver();
+    // pushInAndDescore();
+
+    // AutonSelector selector = AutonSelector();
+    // selector.setCompetitionMode(true);
+    // selector.setDriver(driver);
+    // selector.addAuton(driver, "Driver Only");
+    // selector.addAuton(pushInAuton, "Push In");
+    // selector.addAuton(descoreAuton, "Descorer");
+    // selector.run(&Controller1, &Brain);
 }

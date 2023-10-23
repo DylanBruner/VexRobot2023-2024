@@ -73,10 +73,13 @@ void AutonSelector::run(vex::controller* controller, vex::brain* Brain) {
                 comp.autonomous(autons[(page * 3) + selected]);
             } else {
                 autons[(page * 3) + selected]();
-                driver();
             }
 
             return;
+        } else if (controller->ButtonB.pressing()){
+            controller->rumble("....");
+            autons[(page * 3) + selected]();
+            driver();
         }
     }
 }
