@@ -41,10 +41,13 @@ BetterMotorGroup LeftMotors(leftPorts, 3);
 motor CataMotor(CATA_PORT);
 motor WinchMotor(WINCH_PORT, gearSetting::ratio36_1);
 limit CataSwitch(Brain.ThreeWirePort.A);
-digital_out BackArm(Brain.ThreeWirePort.H);
+digital_out BackArm(Brain.ThreeWirePort.E);
+digital_out RightArm(Brain.ThreeWirePort.D);
+digital_out LeftArm(Brain.ThreeWirePort.H);
 
 // Auton variables
 const bool debug = true;
+const int TILE_CONST = 700;
 
 // modes & states
 const int DM_STRAIGHT = 0;
@@ -60,26 +63,13 @@ const double lrMax = 1; // max change in left/right power (decreases faster side
 
 // runtime
 double drivePower = 8;
-int leftTarget = 0;
-int rightTarget = 0;
+double leftTarget = 0;
+double rightTarget = 0;
 int driveMode = DM_STRAIGHT;
 // End of auton variables
 
 bool disableCataSwitch = false; // Does what it says
-
-void onCataSwitchPress(){
-    if (disableCataSwitch) return;
-    CataMotor.stop();
-}
-
-void onCataControllerButtonPress(){
-    CataMotor.setStopping(hold);
-    CataMotor.spin(fwd, 12, volt);
-}
-
-void onCataControllerButtonRelease(){
-    CataMotor.stop();
-}
+int lastBatterPercentage = 0;
 
 // Auton Code =================================================================================
 void stopDrive(){
@@ -90,8 +80,6 @@ void stopDrive(){
     rightFront.stop();
     rightBack.stop();
     rightMiddle.stop();
-
-
 }
 
 void resetTracking(){
@@ -184,17 +172,17 @@ bool isDriving(){
     return leftFront.velocity(pct) != 0 || rightFront.velocity(pct) != 0;
 }
 
-void driveAsync(int left, int right, int power){
+void driveAsync(double left, double right, double power){
     if (left == right) driveMode = DM_STRAIGHT;
     else driveMode = DM_TURN;
 
-    leftTarget = leftBack.position(degrees) + left;
-    rightTarget = leftBack.position(degrees) + right;
+    leftTarget = leftBack.position(degrees) + (left * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
+    rightTarget = leftBack.position(degrees) + (right * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
     drivePower = power;
 }
 
 // Auto-stops when velocity drops to 0
-bool drive(int left, int right, int power){
+bool drive(double left, double right, double power){
     driveAsync(left, right, power);
     task::sleep(1000);
     while (isDriving()){
@@ -209,16 +197,13 @@ bool drive(int left, int right){
 }
 
 // Autons ===============================
-void pushInAuton(){
-    // Controller1.rumble("........");
-    // drive(700, 700, 12);
-    driveAsync(700, 700, 7);
-    // wait(1000, msec);
-    task::sleep(1000);
-    stopDrive();
-    task::sleep(1000);
-    // Controller1.rumble(".");
-    drive(500, 500, -5);
+void pushInTouchPole(){
+    drive(2.5, 2.5, 5); // push the ball in the goal
+    drive(-0.3, -0.3, 5); // back up
+    drive(-400, 0, 5); // turn to be parallel with the non-driverbox sides
+    BackArm.set(true);
+    drive(-2.2, -2.2, 5); // drive back into the middle corner thingy
+    drive(200, -200, 12); // turn more into the pole
 }
 
 void descoreAuton(){
@@ -242,16 +227,55 @@ void pushInAndDescore(){
     drive(-300, 300, 12);
 }
 
+void justGoForward(){
+    drive(5, 5, 9);
+    drive(-0.75, -0.75, 9);
+}
+
 // End of auton code ==========================================================================
 
 // Driver Code ================================================================================
+void onCataSwitchPress(){
+    if (disableCataSwitch) return;
+    CataMotor.stop();
+}
+
+void onCataControllerButtonPress(){
+    CataMotor.setStopping(hold);
+    CataMotor.spin(fwd, 12, volt);
+}
+
+void onCataControllerButtonRelease(){
+    CataMotor.stop();
+}
+
+void onButtonUpPressed(){
+    LeftArm.set(true);
+    RightArm.set(true);
+}
+
+void onButtonDownPressed(){
+    LeftArm.set(false);
+    RightArm.set(false);
+}
+
 void driver(){
     stopDrive(); // Disable auton drive task
     CataSwitch.pressed(onCataSwitchPress);
     Controller1.ButtonR1.pressed(onCataControllerButtonPress);
     Controller1.ButtonR1.released(onCataControllerButtonRelease);
+    Controller1.ButtonUp.pressed(onButtonUpPressed);
+    Controller1.ButtonDown.pressed(onButtonDownPressed);
+
     
     while(true){
+        if (lastBatterPercentage != Brain.Battery.capacity(percent)){
+            lastBatterPercentage = Brain.Battery.capacity(percent);
+            Controller1.Screen.clearScreen();
+            Controller1.Screen.setCursor(1, 1);
+            Controller1.Screen.print("Battery: %d%%", lastBatterPercentage);
+        }
+        
         RightMotors.spin(fwd, Controller1.Axis2.position(), pct);
         LeftMotors.spin(fwd, Controller1.Axis3.position(), pct);
         
@@ -282,6 +306,43 @@ void driver(){
 }
 // End of driver code =========================================================================
 
+void motorTester(){
+    driveMode = DISABLED; // disable the drive task
+
+    int lastMotor = -1;
+    int currentMotor = 0; // 0-5
+
+    motor* testing = nullptr;
+    // set testing to the motor that is currently being tested, 0-2 = left, 3-5 = right
+    while (true){
+        if (lastMotor != currentMotor){
+            Controller1.rumble(".");
+            if (testing != nullptr) testing->stop();
+
+            Controller1.Screen.clearScreen();
+            Controller1.Screen.setCursor(1, 1);
+            if (currentMotor == 0) {testing = &leftFront; Controller1.Screen.print("Left Front");}
+            else if (currentMotor == 1) {testing = &leftMiddle; Controller1.Screen.print("Left Middle");}
+            else if (currentMotor == 2) {testing = &leftBack; Controller1.Screen.print("Left Back");}
+            else if (currentMotor == 3) {testing = &rightFront; Controller1.Screen.print("Right Front");}
+            else if (currentMotor == 4) {testing = &rightMiddle; Controller1.Screen.print("Right Middle");}
+            else if (currentMotor == 5) {testing = &rightBack; Controller1.Screen.print("Right Back");}
+
+            Controller1.Screen.newLine();
+            Controller1.Screen.print("Temp: %d", testing->temperature(vex::temperatureUnits::fahrenheit));
+            lastMotor = currentMotor;
+        }
+
+        if (Controller1.ButtonA.pressing()){
+            wait(500, msec);
+            currentMotor++;
+            if (currentMotor > 5) currentMotor = 0;
+        }
+
+        if (testing != nullptr) testing->spin(fwd, Controller1.Axis3.position(), pct);
+    }
+}
+
 int main() {
     task dt(autonDriveTask);
 
@@ -291,14 +352,12 @@ int main() {
     RightMotors.setStopping(brake);
     CataMotor.setStopping(hold);
 
-    driver();
-    // pushInAndDescore();
-
-    // AutonSelector selector = AutonSelector();
-    // selector.setCompetitionMode(true);
-    // selector.setDriver(driver);
-    // selector.addAuton(driver, "Driver Only");
-    // selector.addAuton(pushInAuton, "Push In");
-    // selector.addAuton(descoreAuton, "Descorer");
-    // selector.run(&Controller1, &Brain);
+    AutonSelector selector = AutonSelector();
+    selector.setCompetitionMode(true);
+    selector.setDriver(driver);
+    selector.addAuton(driver, "Driver Only");
+    selector.addAuton(motorTester, "Motor Tester");
+    selector.addAuton(justGoForward, "Go Forward...");
+    selector.addAuton(pushInTouchPole, "Push In & Pole");
+    selector.run(&Controller1, &Brain);
 }
