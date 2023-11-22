@@ -9,20 +9,26 @@
 #include "vex.h"
 #include "better_motor_group.h"
 #include "auton_selector.h"
+#include "odometry.h"
 
 using namespace vex;
 
 brain       Brain;
 controller  Controller1;
 
-const int LEFT_FRONT = PORT7;
-const int LEFT_MIDDLE = PORT21;
+const int LEFT_FRONT = PORT7; // 7
+const int LEFT_MIDDLE = PORT21; // 21
 const int LEFT_BACK = PORT10;
-const int RIGHT_FRONT = PORT8;
+const int RIGHT_FRONT = PORT8; // 8
 const int RIGHT_MIDDLE = PORT18;
 const int RIGHT_BACK = PORT19;
-const int CATA_PORT = PORT6;
+const int CATA_PORT = PORT6; // 6
 const int WINCH_PORT = PORT4;
+
+const int L_ENCODER = PORT15;
+const int R_ENCODER = PORT14;
+const int CATA_ENCODER = PORT14;
+const int CATA_BALL_DISTANCE = PORT13;
 
 // Drive motors
 int32_t rightPorts[] = {RIGHT_FRONT, RIGHT_MIDDLE, RIGHT_BACK};//20
@@ -39,6 +45,10 @@ BetterMotorGroup LeftMotors(leftPorts, 3);
 
 // Other motors
 motor CataMotor(CATA_PORT);
+rotation CataEncoder(CATA_ENCODER);
+vex::distance CataBallDistance(CATA_BALL_DISTANCE);
+
+
 motor WinchMotor(WINCH_PORT, gearSetting::ratio36_1);
 limit CataSwitch(Brain.ThreeWirePort.A);
 digital_out BackArm(Brain.ThreeWirePort.E);
@@ -46,13 +56,17 @@ digital_out RightArm(Brain.ThreeWirePort.D);
 digital_out LeftArm(Brain.ThreeWirePort.H);
 
 // Auton variables
-const bool debug = true;
+const bool DEBUG = true;
 const int TILE_CONST = 700;
 
 // modes & states
 const int DM_STRAIGHT = 0;
 const int DM_TURN = 1;
 const int DISABLED = 2;
+
+const int CATA_MANUAL = 0;
+const int CATA_SEMI_AUTO = 1;
+const int CATA_AUTO = 2;
 
 // config
 const double kP = 0.05; // for distance
@@ -66,6 +80,8 @@ double drivePower = 8;
 double leftTarget = 0;
 double rightTarget = 0;
 int driveMode = DM_STRAIGHT;
+int cataMode = CATA_AUTO;
+bool cataStopped = false;
 // End of auton variables
 
 bool disableCataSwitch = false; // Does what it says
@@ -110,15 +126,15 @@ int autonDriveTask(){
         task::sleep(10);
         if (driveMode == DISABLED) {continue;}
 
-        int l_error = leftFront.position(degrees) - leftTarget;
-        int r_error = rightFront.position(degrees) - rightTarget;
+        double l_error = leftFront.position(degrees) - leftTarget;
+        double r_error = rightFront.position(degrees) - rightTarget;
         // lr should be the difference between the two
-        int lr_error = l_error - r_error;
+        double lr_error = l_error - r_error;
 
-        int l_pos = leftFront.position(degrees);
-        int r_pos = rightFront.position(degrees);
+        double l_pos = leftFront.position(degrees);
+        double r_pos = rightFront.position(degrees);
 
-        if (debug){
+        if (DEBUG){
             Brain.Screen.printAt(1, 20, "Left Pos: %d    ", l_pos);
             Brain.Screen.printAt(1, 40, "Right Pos: %d   ", r_pos);
 
@@ -130,7 +146,7 @@ int autonDriveTask(){
         double l_out = l_error * kP;
         double r_out = r_error * kP;
 
-        if (debug){
+        if (DEBUG){
             Brain.Screen.printAt(1, 120, "LR Out: %d                   ", lr_error);
             Brain.Screen.printAt(1, 140, "LR Out Post: %d                   ", lr_error / lrKp);
         }
@@ -153,18 +169,51 @@ int autonDriveTask(){
                 // add or subtract based on the direction
                 if (lr_out > 0) l_out += lr_out;
                 else l_out -= lr_out;
-                if (debug) Brain.Screen.printAt(1, 160, "Left is ahead   ");
+                if (DEBUG) Brain.Screen.printAt(1, 160, "Left is ahead   ");
             } else if (r_error > l_error){
                 // add or subtract based on the direction
                 if (lr_out > 0) r_out += lr_out;
                 else r_out -= lr_out;
-                if (debug) Brain.Screen.printAt(1, 160, "Right is ahead   ");
+                if (DEBUG) Brain.Screen.printAt(1, 160, "Right is ahead   ");
             }
         }
 
         _spinLeft(fwd, -l_out);
         _spinRight(fwd, -r_out);
     }
+}
+
+int cataTask(){
+    CataEncoder.resetPosition();
+    while (true){
+        task::sleep(10);
+        Brain.Screen.setCursor(1, 1);
+        Brain.Screen.print("Cata: %f", CataEncoder.position(degrees));
+        // print out the cataball distance
+        Brain.Screen.newLine();
+        Brain.Screen.print("Cata Ball: %f", CataBallDistance.objectDistance(inches));
+
+        if (cataMode == CATA_SEMI_AUTO){
+            if (CataEncoder.position(degrees) > 100 && !cataStopped){
+                CataMotor.stop();
+                cataStopped = true;
+            } else if (cataStopped && CataEncoder.position(degrees) < 90){
+                cataStopped = false;
+            }
+        } else if (cataMode == CATA_AUTO){
+            if (CataEncoder.position(degrees) > 100 && CataBallDistance.objectDistance(inches) < 6 && !cataStopped){
+                CataMotor.stop();
+                cataStopped = true;
+                Controller1.rumble(".....");
+            } else if (CataBallDistance.objectDistance(inches) > 6){
+                CataMotor.spin(fwd, 12, volt);
+                cataStopped = false;
+            } else if (CataEncoder.position(degrees) < 90){
+                CataMotor.spin(fwd, 12, volt);
+            }
+        }
+    }
+
 }
 
 // returns true if the velocity of leftFront or rightFront is not 0
@@ -232,6 +281,10 @@ void justGoForward(){
     drive(-0.75, -0.75, 9);
 }
 
+void winpointAuton(){
+
+}
+
 // End of auton code ==========================================================================
 
 // Driver Code ================================================================================
@@ -282,7 +335,7 @@ void driver(){
         // Cata
         if (Controller1.ButtonY.pressing()){
             CataMotor.spin(reverse, 12, volt);
-        } else if (!Controller1.ButtonR1.pressing() && !Controller1.ButtonB.pressing()){
+        } else if (!Controller1.ButtonR1.pressing() && !Controller1.ButtonB.pressing() && !cataMode == CATA_AUTO){
             CataMotor.stop();
         }
 
@@ -345,6 +398,9 @@ void motorTester(){
 
 int main() {
     task dt(autonDriveTask);
+    // task ct(cataTask);
+
+    if (Controller1.ButtonA.pressing()){}
 
     // Configure some other stuff
     LeftMotors.setReversed(true);
@@ -352,12 +408,63 @@ int main() {
     RightMotors.setStopping(brake);
     CataMotor.setStopping(hold);
 
-    AutonSelector selector = AutonSelector();
-    selector.setCompetitionMode(true);
-    selector.setDriver(driver);
-    selector.addAuton(driver, "Driver Only");
-    selector.addAuton(motorTester, "Motor Tester");
-    selector.addAuton(justGoForward, "Go Forward...");
-    selector.addAuton(pushInTouchPole, "Push In & Pole");
-    selector.run(&Controller1, &Brain);
+    // driver();
+    winpointAuton();
+
+    // AutonSelector selector = AutonSelector();
+    // selector.setCompetitionMode(true);
+    // selector.setDriver(driver);
+    // selector.addAuton(driver, "Driver Only");
+    // selector.addAuton(motorTester, "Motor Tester");
+    // selector.addAuton(justGoForward, "Go Forward...");
+    // selector.addAuton(pushInTouchPole, "Push In & Pole");
+    // selector.run(&Controller1, &Brain);
+
+    // Brain.Screen.clearScreen();
+
+    // double t = 1;
+    // leftFront.setMaxTorque(t, pct);
+    // leftMiddle.setMaxTorque(t, pct);
+    // leftBack.setMaxTorque(t, pct);
+    // rightFront.setMaxTorque(t, pct);
+    // rightMiddle.setMaxTorque(t, pct);
+    // rightBack.setMaxTorque(t, pct);
+
+    // rotation leftTracker(L_ENCODER);
+    // rotation rightTracker(R_ENCODER);
+    
+    // Odometry odometry = Odometry(3.5, 3.5, 0.0, &leftTracker, &rightTracker, &rightBack);
+
+
+    // while (true){
+    //     vex::task::sleep(10);
+    // 
+    //     Brain.Screen.setCursor(1, 1);
+    //     Brain.Screen.print("Left: %f            ", tracker.position(degrees));
+    // }
+
+    // while (true){
+    //     vex::task::sleep(10);
+
+    //     // draw the heading on the brain screen
+    //     Brain.Screen.setCursor(1, 1);
+    //     double error = (0) - odometry.getHeading();
+    //     Brain.Screen.print("Heading: %f               ",         odometry.getHeading());
+    //     Brain.Screen.newLine();
+    //     Brain.Screen.print("Error: %f               ", error);
+
+    //     if (fabs(error) > 10){
+    //         Controller1.rumble(".");
+    //         if (error < 0){
+    //             LeftMotors.spin(fwd, -fmax(fabs(error / 4), 5), pct);
+    //             RightMotors.spin(fwd, fmax(fabs(error / 4), 5), pct);
+    //         } else {
+    //             LeftMotors.spin(fwd, fmax(fabs(error / 4), 5), pct);
+    //             RightMotors.spin(fwd, -fmax(fabs(error / 4), 5), pct);
+    //         }
+    //     } else {
+    //         LeftMotors.stop();
+    //         RightMotors.stop();
+    //     }
+    // }
 }
