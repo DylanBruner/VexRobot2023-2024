@@ -69,6 +69,7 @@ const int CATA_SEMI_AUTO = 1;
 const int CATA_AUTO = 2;
 
 // config
+const double slewStep = 0.1; // voltage change per step
 const double kP = 0.05; // for distance
 
 // Straight drive config
@@ -86,6 +87,8 @@ bool cataStopped = false;
 
 bool disableCataSwitch = false; // Does what it says
 int lastBatterPercentage = 0;
+
+bool skillsCataThing = false;
 
 // Auton Code =================================================================================
 void stopDrive(){
@@ -222,12 +225,12 @@ bool isDriving(){
 }
 
 void driveAsync(double left, double right, double power){
+    drivePower = power;
     if (left == right) driveMode = DM_STRAIGHT;
     else driveMode = DM_TURN;
 
     leftTarget = leftBack.position(degrees) + (left * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
     rightTarget = leftBack.position(degrees) + (right * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
-    drivePower = power;
 }
 
 // Auto-stops when velocity drops to 0
@@ -282,7 +285,59 @@ void justGoForward(){
 }
 
 void winpointAuton(){
+    // Push the ball in the goal
+    drive(2, 2, 9);
 
+    drive(-0.3, -0.3, 4); // back up a tad in case we've gone under the goal
+    drive(-100, 100, 7);
+    resetTracking();
+    drive(0.4, 0.4, 4);
+    resetTracking();
+        
+    // return;
+    // Get the ball out of the corner
+    BackArm.set(true);
+    drive(-0.45, -0.45, 4);
+    drive(-200, -600, 4);
+    wait(1000, msec);
+    BackArm.set(false);
+
+    // drive back to the bar after pushing the ball out of the corner
+    resetTracking();
+    drive(-100, -350, 4);
+    drive(-100, -250, 4);
+    drive(-500, -750, 4); //
+    resetTracking();
+    drive(-3, -3, 5);
+}
+
+
+bool disableRebound = false;
+void skills_onCataPressed(){
+    CataMotor.stop();
+    wait(750, msec);
+    if (disableRebound) return;
+    CataMotor.spin(fwd, 12, volt);
+}
+
+void skillsAuton(){
+    driveMode = DISABLED;
+    CataSwitch.pressed(skills_onCataPressed);
+    CataMotor.spin(fwd, 12, volt);
+    _spinLeft(reverse, 1.5);
+    _spinRight(reverse, 1.5);
+    wait(45*1000, msec); // wait however many seconds we wanna be shooting for
+
+    // driveMode = DM_STRAIGHT;
+    // drive(440, 0, 5);
+    // drive(2.5, 2.5, 5);
+    // disableRebound = true;
+    // CataMotor.spin(fwd, 12, volt); // cata down to go under the bar
+    // wait(50000, msec);
+    // drive(0.75, 0.75, 7); 
+    // CataMotor.spin(fwd, 12, volt); // put the cata back up
+    // wait(500, msec);
+    // drive(-0.5, -0.5, 7);
 }
 
 // End of auton code ==========================================================================
