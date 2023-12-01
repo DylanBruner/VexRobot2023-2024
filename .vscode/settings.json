@@ -28,5 +28,14 @@
 		"utility": "cpp",
 		"typeinfo": "cpp"
 	},
-	"C_Cpp.default.compilerPath": ""
+	"C_Cpp.default.compilerPath": "",
+	"files.exclude": {
+		"**/.git": true,
+		"**/.svn": true,
+		"**/.hg": true,
+		"**/CVS": false,
+		"**/.DS_Store": true,
+		"**/Thumbs.db": true
+	},
+	"explorerExclude.backup": {}
 }

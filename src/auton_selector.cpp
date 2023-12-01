@@ -78,6 +78,9 @@ void AutonSelector::run(vex::controller* controller, vex::brain* Brain) {
             return;
         } else if (controller->ButtonB.pressing()){
             controller->rumble("....");
+            controller->Screen.clearScreen();
+            controller->Screen.print("Running prgm #%f", (page * 3) + selected);
+            wait(1, vex::seconds);
             autons[(page * 3) + selected]();
             driver();
         }

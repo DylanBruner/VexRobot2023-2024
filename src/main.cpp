@@ -10,6 +10,7 @@
 #include "better_motor_group.h"
 #include "auton_selector.h"
 #include "odometry.h"
+#include <math.h>
 
 using namespace vex;
 
@@ -25,10 +26,9 @@ const int RIGHT_BACK = PORT19;
 const int CATA_PORT = PORT6; // 6
 const int WINCH_PORT = PORT4;
 
-const int L_ENCODER = PORT15;
 const int R_ENCODER = PORT14;
-const int CATA_ENCODER = PORT14;
-const int CATA_BALL_DISTANCE = PORT13;
+const int CATA_ENCODER = PORT17;
+const int CATA_BALL_DISTANCE = PORT3;
 
 // Drive motors
 int32_t rightPorts[] = {RIGHT_FRONT, RIGHT_MIDDLE, RIGHT_BACK};//20
@@ -45,7 +45,7 @@ BetterMotorGroup LeftMotors(leftPorts, 3);
 
 // Other motors
 motor CataMotor(CATA_PORT);
-rotation CataEncoder(CATA_ENCODER);
+rotation CataEncoder(CATA_ENCODER, true);
 vex::distance CataBallDistance(CATA_BALL_DISTANCE);
 
 
@@ -81,13 +81,15 @@ double drivePower = 8;
 double leftTarget = 0;
 double rightTarget = 0;
 int driveMode = DM_STRAIGHT;
-int cataMode = CATA_AUTO;
+int cataMode = CATA_SEMI_AUTO;
 bool cataStopped = false;
+bool shootingBall = false;
 // End of auton variables
 
 bool disableCataSwitch = false; // Does what it says
 int lastBatterPercentage = 0;
 
+bool disableCataTask = false;
 bool skillsCataThing = false;
 
 // Auton Code =================================================================================
@@ -111,16 +113,27 @@ void resetTracking(){
 }
 
 // this needs code added to it that makes sure the values stay near each other
-void _spinLeft(directionType dir, int volts){
+void _spinLeft(directionType dir, double volts){
     leftFront.spin(dir, volts, volt);
     leftMiddle.spin(dir, volts, volt);
     leftBack.spin(dir, volts, volt);
 }
 
-void _spinRight(directionType dir, int volts){
+void _spinRight(directionType dir, double volts){
     rightFront.spin(dir, volts, volt);
     rightMiddle.spin(dir, volts, volt);
     rightBack.spin(dir, volts, volt);
+}
+
+double sineSlew(double target, double current){
+    double PI = 3.14159265358979323846;
+    if (current >= 0 && current <= target){
+        return target * sin(PI / (2 * target) * current);
+    } else if (current > target && current <= 2 * target){
+        return target * sin(PI / (2 * target) * (2 * target - current));
+    } else {
+        return 0.0;
+    }
 }
 
 // Main drive task
@@ -148,6 +161,8 @@ int autonDriveTask(){
 
         double l_out = l_error * kP;
         double r_out = r_error * kP;
+        // double l_out = sineSlew(drivePower, l_error * kP);
+        // double r_out = sineSlew(drivePower, r_error * kP);
 
         if (DEBUG){
             Brain.Screen.printAt(1, 120, "LR Out: %d                   ", lr_error);
@@ -186,37 +201,44 @@ int autonDriveTask(){
     }
 }
 
+// Runs in the background, manages the cata
+// does things like full and semi-auto
 int cataTask(){
     CataEncoder.resetPosition();
     while (true){
+        if(disableCataTask) continue;
+
         task::sleep(10);
-        Brain.Screen.setCursor(1, 1);
-        Brain.Screen.print("Cata: %f", CataEncoder.position(degrees));
-        // print out the cataball distance
-        Brain.Screen.newLine();
-        Brain.Screen.print("Cata Ball: %f", CataBallDistance.objectDistance(inches));
+        // Brain.Screen.setCursor(1, 1);
+        // Brain.Screen.print("Cata: %f", CataEncoder.position(degrees));
+        // Brain.Screen.newLine();
+        // Brain.Screen.print("Cata Ball: %f", CataBallDistance.objectDistance(inches));
 
         if (cataMode == CATA_SEMI_AUTO){
-            if (CataEncoder.position(degrees) > 100 && !cataStopped){
+            if (CataEncoder.position(degrees) > 85 && !cataStopped){
                 CataMotor.stop();
                 cataStopped = true;
-            } else if (cataStopped && CataEncoder.position(degrees) < 90){
+            } else if (cataStopped && CataEncoder.position(degrees) < 85){
                 cataStopped = false;
             }
         } else if (cataMode == CATA_AUTO){
-            if (CataEncoder.position(degrees) > 100 && CataBallDistance.objectDistance(inches) < 6 && !cataStopped){
+            if (CataEncoder.position(degrees) > 85 && !cataStopped && !shootingBall){
                 CataMotor.stop();
                 cataStopped = true;
-                Controller1.rumble(".....");
-            } else if (CataBallDistance.objectDistance(inches) > 6){
-                CataMotor.spin(fwd, 12, volt);
+            } else if (cataStopped && CataBallDistance.objectDistance(inches) < 3){
                 cataStopped = false;
-            } else if (CataEncoder.position(degrees) < 90){
+                shootingBall = true;
+                Controller1.rumble(".");
+            } else if (!cataStopped || shootingBall) {
                 CataMotor.spin(fwd, 12, volt);
+            }
+
+            if (CataEncoder.position(degrees) < 5){
+                shootingBall = false;
+                Controller1.rumble("_");
             }
         }
     }
-
 }
 
 // returns true if the velocity of leftFront or rightFront is not 0
@@ -285,6 +307,9 @@ void justGoForward(){
 }
 
 void winpointAuton(){
+    double startTime = Brain.timer(timeUnits::msec);
+
+    // if (true) return;
     // Push the ball in the goal
     drive(2, 2, 9);
 
@@ -297,36 +322,75 @@ void winpointAuton(){
     // return;
     // Get the ball out of the corner
     BackArm.set(true);
-    drive(-0.45, -0.45, 4);
+    drive(-0.45, -0.45, 8);
     drive(-200, -600, 4);
-    wait(1000, msec);
     BackArm.set(false);
 
     // drive back to the bar after pushing the ball out of the corner
     resetTracking();
-    drive(-100, -350, 4);
-    drive(-100, -250, 4);
-    drive(-500, -750, 4); //
+    drive(-600, -900, 8);
     resetTracking();
-    drive(-3, -3, 5);
+    drive(-680, 680, 5);
+    resetTracking();
+    drive(1.65, 1.65, 8);
+    drive(0.35, 0.35, 4);
+
+    double timeElapsed = Brain.timer(timeUnits::msec) - startTime;
+    Controller1.Screen.clearScreen();
+    Controller1.Screen.setCursor(1, 1);
+    Controller1.Screen.print("Time Elapsed: %f", timeElapsed);
+}
+
+void nearSideAuton(){
+    // Get the ball out of the corner
+    resetTracking();
+    drive(0.75, 0.75, 7);
+    resetTracking();
+    drive(275, -275, 7);
+    BackArm.set(true);
+    resetTracking();
+    drive(-0.14, -0.14, 7);
+    resetTracking();
+    wait(0.5, sec);
+    drive(-300, 300, 9);
+    resetTracking();
+    BackArm.set(false);
+
+    // line up with the bar
+    drive(355, -355, 9);
+    resetTracking();
+    drive(0.9, 0.9, 9);
+    resetTracking();
+    drive(-140, 140, 9);
+    resetTracking();
+
+    drive(1.4, 1.4, 9);
 }
 
 
 bool disableRebound = false;
 void skills_onCataPressed(){
     CataMotor.stop();
-    wait(750, msec);
+    wait(2000, msec);
     if (disableRebound) return;
+    CataMotor.spin(fwd, 12, volt);
+}
+
+void skills_onCataRelease(){
+    CataMotor.stop();
+    // CataMotor.spinFor(-150, deg, 100, velocityUnits::pct);
     CataMotor.spin(fwd, 12, volt);
 }
 
 void skillsAuton(){
     driveMode = DISABLED;
+    disableCataTask = true;
     CataSwitch.pressed(skills_onCataPressed);
+    CataSwitch.released(skills_onCataRelease);
     CataMotor.spin(fwd, 12, volt);
     _spinLeft(reverse, 1.5);
     _spinRight(reverse, 1.5);
-    wait(45*1000, msec); // wait however many seconds we wanna be shooting for
+    wait(65*1000, msec); // wait however many seconds we wanna be shooting for
 
     // driveMode = DM_STRAIGHT;
     // drive(440, 0, 5);
@@ -369,7 +433,7 @@ void onButtonDownPressed(){
 
 void driver(){
     stopDrive(); // Disable auton drive task
-    CataSwitch.pressed(onCataSwitchPress);
+    // CataSwitch.pressed(onCataSwitchPress);
     Controller1.ButtonR1.pressed(onCataControllerButtonPress);
     Controller1.ButtonR1.released(onCataControllerButtonRelease);
     Controller1.ButtonUp.pressed(onButtonUpPressed);
@@ -390,7 +454,7 @@ void driver(){
         // Cata
         if (Controller1.ButtonY.pressing()){
             CataMotor.spin(reverse, 12, volt);
-        } else if (!Controller1.ButtonR1.pressing() && !Controller1.ButtonB.pressing() && !cataMode == CATA_AUTO){
+        } else if (!Controller1.ButtonR1.pressing() && !Controller1.ButtonB.pressing() && !(cataMode == CATA_AUTO)){
             CataMotor.stop();
         }
 
@@ -453,27 +517,26 @@ void motorTester(){
 
 int main() {
     task dt(autonDriveTask);
-    // task ct(cataTask);
+    task ct(cataTask);
 
-    if (Controller1.ButtonA.pressing()){}
-
-    // Configure some other stuff
+    // Conf igure some other stuff
     LeftMotors.setReversed(true);
     LeftMotors.setStopping(brake);
     RightMotors.setStopping(brake);
-    CataMotor.setStopping(hold);
+    CataMotor.setStopping(hold); 
 
-    // driver();
-    winpointAuton();
+    nearSideAuton();
 
     // AutonSelector selector = AutonSelector();
     // selector.setCompetitionMode(true);
     // selector.setDriver(driver);
-    // selector.addAuton(driver, "Driver Only");
-    // selector.addAuton(motorTester, "Motor Tester");
+    // // selector.addAuton(driver, "Driver Only");
+    // // selector.addAuton(motorTester, "Motor Tester");
+    // selector.addAuton(winpointAuton, "Winpoint Auton");
+    // selector.addAuton(skillsAuton, "Skills Auton");
     // selector.addAuton(justGoForward, "Go Forward...");
-    // selector.addAuton(pushInTouchPole, "Push In & Pole");
     // selector.run(&Controller1, &Brain);
+
 
     // Brain.Screen.clearScreen();
 
