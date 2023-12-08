@@ -21,8 +21,8 @@ const int LEFT_FRONT = PORT7; // 7
 const int LEFT_MIDDLE = PORT21; // 21
 const int LEFT_BACK = PORT10;
 const int RIGHT_FRONT = PORT8; // 8
-const int RIGHT_MIDDLE = PORT18;
-const int RIGHT_BACK = PORT19;
+const int RIGHT_MIDDLE = PORT19;
+const int RIGHT_BACK = PORT18;
 const int CATA_PORT = PORT6; // 6
 const int WINCH_PORT = PORT4;
 
@@ -45,9 +45,11 @@ BetterMotorGroup LeftMotors(leftPorts, 3);
 
 // Other motors
 motor CataMotor(CATA_PORT);
+
+// Sensors
 rotation CataEncoder(CATA_ENCODER, true);
 vex::distance CataBallDistance(CATA_BALL_DISTANCE);
-
+inertial Inertial(PORT13);
 
 motor WinchMotor(WINCH_PORT, gearSetting::ratio36_1);
 limit CataSwitch(Brain.ThreeWirePort.A);
@@ -69,17 +71,22 @@ const int CATA_SEMI_AUTO = 1;
 const int CATA_AUTO = 2;
 
 // config
-const double slewStep = 0.1; // voltage change per step
+const double slewStep = 0.2; // voltage change per step
 const double kP = 0.05; // for distance
 
 // Straight drive config
-const double lrKp = 4; // for straight drive (for some unknown reason this doesn't work unless i use division)
-const double lrMax = 1; // max change in left/right power (decreases faster side)
+const double lrKp = 0.05; // for straight drive (for some unknown reason this doesn't work unless i use division)
+const double lrMax = 0.5; // max change in left/right power (decreases faster side)
 
 // runtime
+double targetPower = 0;
 double drivePower = 8;
+double leftStart = 0;
+double rightStart = 0;
 double leftTarget = 0;
 double rightTarget = 0;
+double lastOut = 0;
+double targetTurn = 0;
 int driveMode = DM_STRAIGHT;
 int cataMode = CATA_SEMI_AUTO;
 bool cataStopped = false;
@@ -125,75 +132,72 @@ void _spinRight(directionType dir, double volts){
     rightBack.spin(dir, volts, volt);
 }
 
-double sineSlew(double target, double current){
-    double PI = 3.14159265358979323846;
-    if (current >= 0 && current <= target){
-        return target * sin(PI / (2 * target) * current);
-    } else if (current > target && current <= 2 * target){
-        return target * sin(PI / (2 * target) * (2 * target - current));
-    } else {
-        return 0.0;
-    }
-}
-
 // Main drive task
 int autonDriveTask(){
     while (true){
         task::sleep(10);
         if (driveMode == DISABLED) {continue;}
 
-        double l_error = leftFront.position(degrees) - leftTarget;
-        double r_error = rightFront.position(degrees) - rightTarget;
-        // lr should be the difference between the two
-        double lr_error = l_error - r_error;
+        LeftMotors.setStopping(hold);
+        RightMotors.setStopping(hold);
 
-        double l_pos = leftFront.position(degrees);
-        double r_pos = rightFront.position(degrees);
+        double l_out = 0;
+        double r_out = 0;
 
-        if (DEBUG){
-            Brain.Screen.printAt(1, 20, "Left Pos: %d    ", l_pos);
-            Brain.Screen.printAt(1, 40, "Right Pos: %d   ", r_pos);
-
-            Brain.Screen.printAt(1, 60, "Left Error: %d    ", l_error);
-            Brain.Screen.printAt(1, 80, "Right Error: %d   ", r_error);
-            Brain.Screen.printAt(1, 100, "LR Error: %d   ", lr_error);
-        }
-
-        double l_out = l_error * kP;
-        double r_out = r_error * kP;
-        // double l_out = sineSlew(drivePower, l_error * kP);
-        // double r_out = sineSlew(drivePower, r_error * kP);
-
-        if (DEBUG){
-            Brain.Screen.printAt(1, 120, "LR Out: %d                   ", lr_error);
-            Brain.Screen.printAt(1, 140, "LR Out Post: %d                   ", lr_error / lrKp);
-        }
-
-        int lr_out = lr_error / lrKp;
-        // limit lr_out to -lrMax to lrMax
-        if (lr_out > lrMax) lr_out = lrMax;
-        if (lr_out < -lrMax) lr_out = -lrMax;
-
-
-        // limit to -drivePower to drivePower
-        if (l_out > drivePower) l_out = drivePower;
-        if (l_out < -drivePower) l_out = -drivePower;
-        if (r_out > drivePower) r_out = drivePower;
-        if (r_out < -drivePower) r_out = -drivePower;
-
-        // figure out which side is ahead and slow it down
         if (driveMode == DM_STRAIGHT){
-            if (l_error > r_error){
-                // add or subtract based on the direction
-                if (lr_out > 0) l_out += lr_out;
-                else l_out -= lr_out;
-                if (DEBUG) Brain.Screen.printAt(1, 160, "Left is ahead   ");
-            } else if (r_error > l_error){
-                // add or subtract based on the direction
-                if (lr_out > 0) r_out += lr_out;
-                else r_out -= lr_out;
-                if (DEBUG) Brain.Screen.printAt(1, 160, "Right is ahead   ");
+            double l_error = leftFront.position(degrees) - leftTarget;
+            double r_error = rightFront.position(degrees) - rightTarget;
+            // lr should be the difference between the two
+            double lr_error = l_error - r_error;
+
+            double l_pos = leftFront.position(degrees);
+            double r_pos = rightFront.position(degrees);
+
+            l_out = l_error * kP;
+            r_out = r_error * kP;
+
+            if ((fabs(l_error) + fabs(r_error)) / 2 < 600){ // if we're close to the target, slow down
+                drivePower *= 0.95;
+            } else {
+                drivePower += (targetPower - drivePower) / 10;
             }
+            
+            int lr_out = lr_error / lrKp;
+            // limit lr_out to -lrMax to lrMax
+            if (lr_out > lrMax) lr_out = lrMax;
+            if (lr_out < -lrMax) lr_out = -lrMax;
+
+
+            // limit to -drivePower to drivePower
+            if (l_out > drivePower) l_out = drivePower;
+            if (l_out < -drivePower) l_out = -drivePower;
+            if (r_out > drivePower) r_out = drivePower;
+            if (r_out < -drivePower) r_out = -drivePower;
+
+            lastOut = (fabs(l_out) + fabs(r_out)) / 2;
+
+            // _spinLeft(fwd, -l_out);
+            // _spinRight(fwd, -r_out);
+        } else if (DM_TURN){
+            double error = targetTurn - Inertial.rotation(degrees);
+            double out = error * 0.3 + (error - lastOut) * 0.1;
+            lastOut = out;
+            double max = 6;
+            if (out > max) out = max;
+            if (out < -max) out = -max;
+
+            Brain.Screen.setCursor(1, 1);
+            Brain.Screen.print("Error: %f   ", error);
+            Brain.Screen.newLine();
+            Brain.Screen.print("Heading: %f   ", Inertial.rotation());
+            Brain.Screen.newLine();
+            Brain.Screen.print("Target: %f   ", targetTurn);
+            Brain.Screen.newLine();
+            Brain.Screen.print("Out: %f   ", out);
+
+
+            l_out = -out;
+            r_out = out;
         }
 
         _spinLeft(fwd, -l_out);
@@ -206,9 +210,9 @@ int autonDriveTask(){
 int cataTask(){
     CataEncoder.resetPosition();
     while (true){
+        task::sleep(10);
         if(disableCataTask) continue;
 
-        task::sleep(10);
         // Brain.Screen.setCursor(1, 1);
         // Brain.Screen.print("Cata: %f", CataEncoder.position(degrees));
         // Brain.Screen.newLine();
@@ -243,16 +247,33 @@ int cataTask(){
 
 // returns true if the velocity of leftFront or rightFront is not 0
 bool isDriving(){
-    return leftFront.velocity(pct) != 0 || rightFront.velocity(pct) != 0;
+    return fabs(leftFront.velocity(pct)) != 0 || fabs(rightFront.velocity(pct)) != 0; 
 }
 
 void driveAsync(double left, double right, double power){
-    drivePower = power;
-    if (left == right) driveMode = DM_STRAIGHT;
-    else driveMode = DM_TURN;
+    drivePower = power * 0.4; // 10% power
+    targetPower = power;
+    driveMode = DM_STRAIGHT;
 
-    leftTarget = leftBack.position(degrees) + (left * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
-    rightTarget = leftBack.position(degrees) + (right * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
+    leftStart = leftBack.position(degrees);
+    rightStart = rightBack.position(degrees);
+
+    leftTarget = leftFront.position(degrees) + (left * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
+    rightTarget = rightFront.position(degrees) + (right * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
+}
+
+void turnAsync(double degrees){
+    driveMode = DM_TURN;
+    targetTurn = Inertial.rotation() + degrees;
+}
+
+void turn(double degrees){
+    turnAsync(degrees);
+    task::sleep(1000);
+    while (isDriving()){
+        task::sleep(100);
+    }
+    stopDrive();
 }
 
 // Auto-stops when velocity drops to 0
@@ -319,7 +340,6 @@ void winpointAuton(){
     drive(0.4, 0.4, 4);
     resetTracking();
         
-    // return;
     // Get the ball out of the corner
     BackArm.set(true);
     drive(-0.45, -0.45, 8);
@@ -330,10 +350,10 @@ void winpointAuton(){
     resetTracking();
     drive(-600, -900, 8);
     resetTracking();
-    drive(-680, 680, 5);
+    drive(-700, 700, 5);
     resetTracking();
     drive(1.65, 1.65, 8);
-    drive(0.35, 0.35, 4);
+    drive(0.2, 0.2, 4);
 
     double timeElapsed = Brain.timer(timeUnits::msec) - startTime;
     Controller1.Screen.clearScreen();
@@ -342,29 +362,73 @@ void winpointAuton(){
 }
 
 void nearSideAuton(){
-    // Get the ball out of the corner
+    // push the pre-load then smack it into the goal
+    drive(1, 1, 6);
+    drive(250, -290, 6);
     resetTracking();
-    drive(0.75, 0.75, 7);
-    resetTracking();
-    drive(275, -275, 7);
+    LeftArm.set(true);
+    wait(1, sec);
+    LeftArm.set(false);
+
+    // get the ball out of the corner
     BackArm.set(true);
-    resetTracking();
-    drive(-0.14, -0.14, 7);
-    resetTracking();
     wait(0.5, sec);
-    drive(-300, 300, 9);
+    drive(-300, 300, 6);
     resetTracking();
     BackArm.set(false);
-
-    // line up with the bar
-    drive(355, -355, 9);
+    drive(650, -650, 8);
     resetTracking();
-    drive(0.9, 0.9, 9);
+    drive(1, 1, 9);
     resetTracking();
     drive(-140, 140, 9);
     resetTracking();
+    drive(1.6, 1.6, 9);
+    drive(0.3, 0.3, 5);
 
-    drive(1.4, 1.4, 9);
+
+    // drive(-1.3, -1.3, 7);
+    // drive(75, -75, 6);
+    // resetTracking();
+    // drive(-0.8, -0.8, 7);
+    // drive(170, -170, 5);
+    // resetTracking();
+    // drive(-0.6, -0.6, 9);
+    // BackArm.set(false);
+
+
+    // drive(0.35, 0.35, 5); // get a little away from the corner
+    // drive(350, -350, 5); // turn to go touch the thingy
+    // resetTracking();
+
+    // drive(600, 960, 7); // should be pointed straight at the bar
+    // resetTracking();
+
+    // drive(1.8, 1.8, 7); // drive to the bar
+    // drive(0.35, 0.35, 2.4);
+
+    // Get the ball out of the corner
+    // resetTracking();
+    // drive(0.75, 0.75, 7);
+    // resetTracking();
+    // drive(275, -275, 7);
+    // BackArm.set(true);
+    // resetTracking();
+    // drive(-0.14, -0.14, 7);
+    // resetTracking();
+    // wait(0.5, sec);
+    // drive(-300, 300, 9);
+    // resetTracking();
+    // BackArm.set(false);
+
+    // // line up with the bar
+    // drive(355, -355, 9);
+    // resetTracking();
+    // drive(0.9, 0.9, 9);
+    // resetTracking();
+    // drive(-140, 140, 9);
+    // resetTracking();
+
+    // drive(1.4, 1.4, 9);
 }
 
 
@@ -382,26 +446,50 @@ void skills_onCataRelease(){
     CataMotor.spin(fwd, 12, volt);
 }
 
+int holdCataDown(){
+    while (true){
+        task::sleep(10);
+        if (CataEncoder.position(deg) < 70){
+            CataMotor.spin(fwd, 12, volt);
+        } else {
+            CataMotor.stop();
+        }
+    }
+}
+
 void skillsAuton(){
     driveMode = DISABLED;
     disableCataTask = true;
-    CataSwitch.pressed(skills_onCataPressed);
-    CataSwitch.released(skills_onCataRelease);
     CataMotor.spin(fwd, 12, volt);
     _spinLeft(reverse, 1.5);
     _spinRight(reverse, 1.5);
-    wait(65*1000, msec); // wait however many seconds we wanna be shooting for
+    wait(44.5*1000, msec);
+    Controller1.rumble("...");
+    wait(3*1000, msec);
+    _spinLeft(fwd, 0);
+    _spinRight(fwd, 0);
 
-    // driveMode = DM_STRAIGHT;
-    // drive(440, 0, 5);
-    // drive(2.5, 2.5, 5);
-    // disableRebound = true;
-    // CataMotor.spin(fwd, 12, volt); // cata down to go under the bar
-    // wait(50000, msec);
-    // drive(0.75, 0.75, 7); 
-    // CataMotor.spin(fwd, 12, volt); // put the cata back up
-    // wait(500, msec);
-    // drive(-0.5, -0.5, 7);
+    disableRebound = true;
+    // CataSwitch.pressed(skills_onCataPressed);
+    task t(holdCataDown);
+    resetTracking();
+    drive(350, 0, 5);
+    resetTracking();
+    drive(4.75, 4.75, 11);
+    drive(-300, 300, 9);
+    resetTracking();
+    drive(0.5, 0.5, 11);
+    drive(-160, 160, 9);
+    resetTracking();
+    drive(2.5, 2.5, 11);
+    drive(350, -350, 9);
+    LeftArm.set(true);
+    RightArm.set(true);
+    resetTracking();
+    drive(100, -100, 9);
+    resetTracking();
+    drive(1, 1, 12);
+    drive(-1, -1, 12);
 }
 
 // End of auton code ==========================================================================
@@ -525,64 +613,23 @@ int main() {
     RightMotors.setStopping(brake);
     CataMotor.setStopping(hold); 
 
-    nearSideAuton();
 
     // AutonSelector selector = AutonSelector();
     // selector.setCompetitionMode(true);
     // selector.setDriver(driver);
-    // // selector.addAuton(driver, "Driver Only");
-    // // selector.addAuton(motorTester, "Motor Tester");
     // selector.addAuton(winpointAuton, "Winpoint Auton");
     // selector.addAuton(skillsAuton, "Skills Auton");
-    // selector.addAuton(justGoForward, "Go Forward...");
+    // selector.addAuton(nearSideAuton, "Near Side Auton");
     // selector.run(&Controller1, &Brain);
-
-
-    // Brain.Screen.clearScreen();
-
-    // double t = 1;
-    // leftFront.setMaxTorque(t, pct);
-    // leftMiddle.setMaxTorque(t, pct);
-    // leftBack.setMaxTorque(t, pct);
-    // rightFront.setMaxTorque(t, pct);
-    // rightMiddle.setMaxTorque(t, pct);
-    // rightBack.setMaxTorque(t, pct);
-
-    // rotation leftTracker(L_ENCODER);
-    // rotation rightTracker(R_ENCODER);
-    
-    // Odometry odometry = Odometry(3.5, 3.5, 0.0, &leftTracker, &rightTracker, &rightBack);
-
-
-    // while (true){
-    //     vex::task::sleep(10);
-    // 
-    //     Brain.Screen.setCursor(1, 1);
-    //     Brain.Screen.print("Left: %f            ", tracker.position(degrees));
-    // }
-
-    // while (true){
-    //     vex::task::sleep(10);
-
-    //     // draw the heading on the brain screen
-    //     Brain.Screen.setCursor(1, 1);
-    //     double error = (0) - odometry.getHeading();
-    //     Brain.Screen.print("Heading: %f               ",         odometry.getHeading());
-    //     Brain.Screen.newLine();
-    //     Brain.Screen.print("Error: %f               ", error);
-
-    //     if (fabs(error) > 10){
-    //         Controller1.rumble(".");
-    //         if (error < 0){
-    //             LeftMotors.spin(fwd, -fmax(fabs(error / 4), 5), pct);
-    //             RightMotors.spin(fwd, fmax(fabs(error / 4), 5), pct);
-    //         } else {
-    //             LeftMotors.spin(fwd, fmax(fabs(error / 4), 5), pct);
-    //             RightMotors.spin(fwd, -fmax(fabs(error / 4), 5), pct);
-    //         }
-    //     } else {
-    //         LeftMotors.stop();
-    //         RightMotors.stop();
-    //     }
-    // }
+    Inertial.calibrate();
+    while (Inertial.isCalibrating()){
+        task::sleep(10);
+    }
+    Inertial.setRotation(0, degrees);
+    while (true){
+        drive(1, 7);
+        turn(180);
+        drive(1, 7);
+        turn(180);
+    }
 }
