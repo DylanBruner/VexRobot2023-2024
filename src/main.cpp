@@ -64,7 +64,7 @@ const int TILE_CONST = 700;
 // modes & states
 const int DM_STRAIGHT = 0;
 const int DM_TURN = 1;
-const int DISABLED = 2;
+const int DM_DISABLED = 2;
 
 const int CATA_MANUAL = 0;
 const int CATA_SEMI_AUTO = 1;
@@ -73,6 +73,10 @@ const int CATA_AUTO = 2;
 // config
 const double slewStep = 0.2; // voltage change per step
 const double kP = 0.05; // for distance
+
+const double turnKP = 0.075;
+const double turnKI = 0.0002;
+const double turnKD = 0.1;
 
 // Straight drive config
 const double lrKp = 0.05; // for straight drive (for some unknown reason this doesn't work unless i use division)
@@ -86,7 +90,9 @@ double rightStart = 0;
 double leftTarget = 0;
 double rightTarget = 0;
 double lastOut = 0;
+double lastError = 0;
 double targetTurn = 0;
+double integral = 0;
 int driveMode = DM_STRAIGHT;
 int cataMode = CATA_SEMI_AUTO;
 bool cataStopped = false;
@@ -99,9 +105,16 @@ int lastBatterPercentage = 0;
 bool disableCataTask = false;
 bool skillsCataThing = false;
 
+// Math utils =================================================================================
+int sign(double num){
+    if (num > 0) return 1;
+    if (num < 0) return -1;
+    return 0;
+}
+
 // Auton Code =================================================================================
 void stopDrive(){
-    driveMode = DISABLED;
+    driveMode = DM_DISABLED;
     leftFront.stop();
     leftBack.stop();
     leftMiddle.stop();
@@ -136,7 +149,11 @@ void _spinRight(directionType dir, double volts){
 int autonDriveTask(){
     while (true){
         task::sleep(10);
-        if (driveMode == DISABLED) {continue;}
+        if (driveMode == DM_DISABLED) {
+            Brain.Screen.setCursor(5, 1);
+            Brain.Screen.print("Heading: %f   ", Inertial.rotation());
+            continue;
+        }
 
         LeftMotors.setStopping(hold);
         RightMotors.setStopping(hold);
@@ -176,24 +193,47 @@ int autonDriveTask(){
 
             lastOut = (fabs(l_out) + fabs(r_out)) / 2;
 
+            // Straight'ness correction
+            if (Inertial.rotation(degrees) > targetTurn){
+                l_out *= 0.9;
+            } else if (Inertial.rotation(degrees) < targetTurn){
+                r_out *= 0.9;
+            }
+
             // _spinLeft(fwd, -l_out);
             // _spinRight(fwd, -r_out);
         } else if (DM_TURN){
             double error = targetTurn - Inertial.rotation(degrees);
-            double out = error * 0.3 + (error - lastOut) * 0.1;
-            lastOut = out;
-            double max = 6;
-            if (out > max) out = max;
-            if (out < -max) out = -max;
+            if (fabs(error) < 1 && leftFront.velocity(pct) < 1 && rightFront.velocity(pct) < 1) {
+                stopDrive(); // also sets the drive to disabled
+            }
+
+            double derivative = (error - lastError) * turnKD;
+            lastError = error;
+            integral += error;
+            double proportional = error * turnKP;
+
+            if (fabs(error) > 22 * (180 / M_PI)) integral = 0;
+            if (integral > 100) integral = 100;
+            if (-integral > 100) integral = -100;
+
+            double out = proportional + derivative + (integral * turnKI);
+
+            drivePower = targetPower;
+
+            if (out > drivePower) out = drivePower;
+            if (out < -drivePower) out = -drivePower;
 
             Brain.Screen.setCursor(1, 1);
             Brain.Screen.print("Error: %f   ", error);
-            Brain.Screen.newLine();
-            Brain.Screen.print("Heading: %f   ", Inertial.rotation());
+
             Brain.Screen.newLine();
             Brain.Screen.print("Target: %f   ", targetTurn);
             Brain.Screen.newLine();
             Brain.Screen.print("Out: %f   ", out);
+            Brain.Screen.newLine();
+            Brain.Screen.print("Heading: %f   ", Inertial.rotation());
+
 
 
             l_out = -out;
@@ -253,6 +293,7 @@ bool isDriving(){
 void driveAsync(double left, double right, double power){
     drivePower = power * 0.4; // 10% power
     targetPower = power;
+    targetTurn = Inertial.rotation();
     driveMode = DM_STRAIGHT;
 
     leftStart = leftBack.position(degrees);
@@ -262,15 +303,18 @@ void driveAsync(double left, double right, double power){
     rightTarget = rightFront.position(degrees) + (right * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
 }
 
-void turnAsync(double degrees){
+void turnAsync(double degrees, double power){
+    integral = 0;
     driveMode = DM_TURN;
+    drivePower = power * 0.10;
+    targetPower = power;
     targetTurn = Inertial.rotation() + degrees;
 }
 
-void turn(double degrees){
-    turnAsync(degrees);
+void turn(double degrees, double power){
+    turnAsync(degrees, power);
     task::sleep(1000);
-    while (isDriving()){
+    while (driveMode != DM_DISABLED){
         task::sleep(100);
     }
     stopDrive();
@@ -458,7 +502,7 @@ int holdCataDown(){
 }
 
 void skillsAuton(){
-    driveMode = DISABLED;
+    driveMode = DM_DISABLED;
     disableCataTask = true;
     CataMotor.spin(fwd, 12, volt);
     _spinLeft(reverse, 1.5);
@@ -567,7 +611,7 @@ void driver(){
 // End of driver code =========================================================================
 
 void motorTester(){
-    driveMode = DISABLED; // disable the drive task
+    driveMode = DM_DISABLED; // disable the drive task
 
     int lastMotor = -1;
     int currentMotor = 0; // 0-5
@@ -625,11 +669,8 @@ int main() {
     while (Inertial.isCalibrating()){
         task::sleep(10);
     }
-    Inertial.setRotation(0, degrees);
-    while (true){
-        drive(1, 7);
-        turn(180);
-        drive(1, 7);
-        turn(180);
-    }
+    Inertial.resetHeading();
+    Inertial.resetRotation();
+    wait(1, sec);
+    turn(-90, 5);
 }
