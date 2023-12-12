@@ -266,6 +266,8 @@ bool drive(int left, int right){
 }
 
 // Autons ===============================
+void dummyAuton(){} // does nothing
+
 void descoreAuton(){
     drive(-50000, 50000, 12);
 }
@@ -517,19 +519,14 @@ int main() {
     CataMotor.setStopping(hold); 
 
 
-    // AutonSelector selector = AutonSelector();
-    // selector.setCompetitionMode(true);
-    // selector.setDriver(driver);
-    // selector.addAuton(winpointAuton, "Winpoint Auton");
-    // selector.addAuton(skillsAuton, "Skills Auton");
-    // selector.addAuton(nearSideAuton, "Near Side Auton");
-    // selector.run(&Controller1, &Brain);
-    Inertial.calibrate();
-    while (Inertial.isCalibrating()){
-        task::sleep(10);
-    }
-    Inertial.resetHeading();
-    Inertial.resetRotation();
-    wait(1, sec);
-    turn(-90, 5);
+    AutonSelector selector = AutonSelector();
+    selector.setCompetitionMode(true);
+    selector.setDriver(driver);
+    selector.addAuton(driver, "Driver Control");
+    selector.addAuton(dummyAuton, "No Auton");
+    selector.addAuton(justGoForward, "Drive Forward");
+    selector.addAuton(winpointAuton, "Winpoint Auton");
+    selector.addAuton(skillsAuton, "Skills Auton");
+    selector.addAuton(nearSideAuton, "Near Side Auton");
+    selector.run(&Controller1, &Brain);
 }

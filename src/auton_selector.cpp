@@ -17,7 +17,6 @@ void AutonSelector::setDriver(void (*driver)()) {
 }
 
 void AutonSelector::run(vex::controller* controller, vex::brain* Brain) {
-    int page = 0;
     int selected = 0;
     bool draw = true;
 
@@ -31,58 +30,46 @@ void AutonSelector::run(vex::controller* controller, vex::brain* Brain) {
         if (draw){
             draw = false;
             controller->Screen.clearScreen();
+
             controller->Screen.setCursor(1, 1);
-
-            page = selected / 3;
-
-            // Draw the page
-            for (int i = 0; i < 3; i++){
-                int item = (page * 3) + i;
-                if (names[item] != ""){
-                    if (item == selected){ // Show a arrow before the selected option
-                        controller->Screen.print("-> ");
-                    } else {
-                        controller->Screen.print("   ");
-                    }
-                    string name = names[item];
-                    controller->Screen.print(&name[0]);
-                    controller->Screen.newLine();
-                }
+            controller->Screen.print("> ");
+            controller->Screen.print(names[selected].c_str());
+            for (int i = 1; i < 3; i++){
+                controller->Screen.setCursor(i + 1, 1);
+                controller->Screen.print(names[(selected + i) % autonCount].c_str());
             }
         }
 
         // Check if the buttons have been pressed with a <delay> second cooldown
         if (controller->ButtonUp.pressing() && lastPress + delay < Brain->Timer.time(vex::msec)){
-            lastPress = Brain->Timer.time(vex::msec);
-            if (selected > 0){
-                selected--;
-                draw = true;
+            selected--;
+            if (selected < 0){
+                selected = autonCount - 1;
             }
+            draw = true;
+            lastPress = Brain->Timer.time(vex::msec);
         } else if (controller->ButtonDown.pressing() && lastPress + delay < Brain->Timer.time(vex::msec)){
+            selected++;
+            if (selected >= autonCount){
+                selected = 0;
+            }
+            draw = true;
             lastPress = Brain->Timer.time(vex::msec);
-            if (names[(page * 3) + selected + 1] != ""){
-                selected++;
-                draw = true;
-            }
         } else if (controller->ButtonA.pressing()){
+            vex::competition comp = vex::competition();
+            comp.drivercontrol(driver);
+            comp.autonomous(autons[selected]);
             controller->Screen.clearScreen();
-
-            if (this->competition){
-                vex::competition comp = vex::competition();
-                comp.drivercontrol(driver);
-                comp.autonomous(autons[(page * 3) + selected]);
-            } else {
-                autons[(page * 3) + selected]();
-            }
-
+            controller->Screen.setCursor(1, 1);
+            controller->Screen.print("Competition Mode");
+            controller->Screen.setCursor(2, 1);
+            controller->Screen.print(names[selected].c_str());
             return;
         } else if (controller->ButtonB.pressing()){
-            controller->rumble("....");
-            controller->Screen.clearScreen();
-            controller->Screen.print("Running prgm #%f", (page * 3) + selected);
-            wait(1, vex::seconds);
-            autons[(page * 3) + selected]();
-            driver();
+            controller->rumble("...");
+            this->autons[selected]();
+            this->driver();
+            return;
         }
     }
 }
