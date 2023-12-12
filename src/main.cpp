@@ -137,9 +137,6 @@ int autonDriveTask(){
             } else if (Inertial.rotation(degrees) < targetTurn){
                 r_out *= 0.9;
             }
-
-            // _spinLeft(fwd, -l_out);
-            // _spinRight(fwd, -r_out);
         } else if (DM_TURN){
             double error = targetTurn - Inertial.rotation(degrees);
             if (fabs(error) < 1 && leftFront.velocity(pct) < 1 && rightFront.velocity(pct) < 1) {
@@ -218,7 +215,6 @@ int cataTask(){
     }
 }
 
-// returns true if the velocity of leftFront or rightFront is not 0
 bool isDriving(){
     return fabs(leftFront.velocity(pct)) != 0 || fabs(rightFront.velocity(pct)) != 0; 
 }
@@ -279,8 +275,6 @@ void justGoForward(){
 
 void winpointAuton(){
     double startTime = Brain.timer(timeUnits::msec);
-
-    // if (true) return;
     // Push the ball in the goal
     drive(2, 2, 9);
 

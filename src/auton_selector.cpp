@@ -67,8 +67,16 @@ void AutonSelector::run(vex::controller* controller, vex::brain* Brain) {
             return;
         } else if (controller->ButtonB.pressing()){
             controller->rumble("...");
+            double start = Brain->Timer.time(vex::sec);
             this->autons[selected]();
-            this->driver();
+            double end = Brain->Timer.time(vex::sec);
+            controller->Screen.clearScreen();
+            controller->Screen.setCursor(1, 1);
+            controller->Screen.print("Auton Complete");
+            controller->Screen.setCursor(2, 1);
+            controller->Screen.print("Time: ");
+            controller->Screen.print(end - start);
+            controller->Screen.print("s");
             return;
         }
     }
