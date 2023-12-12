@@ -10,25 +10,13 @@
 #include "better_motor_group.h"
 #include "auton_selector.h"
 #include "odometry.h"
+#include "config.h"
 #include <math.h>
 
 using namespace vex;
 
 brain       Brain;
 controller  Controller1;
-
-const int LEFT_FRONT = PORT7; // 7
-const int LEFT_MIDDLE = PORT21; // 21
-const int LEFT_BACK = PORT10;
-const int RIGHT_FRONT = PORT8; // 8
-const int RIGHT_MIDDLE = PORT19;
-const int RIGHT_BACK = PORT18;
-const int CATA_PORT = PORT6; // 6
-const int WINCH_PORT = PORT4;
-
-const int R_ENCODER = PORT14;
-const int CATA_ENCODER = PORT17;
-const int CATA_BALL_DISTANCE = PORT3;
 
 // Drive motors
 int32_t rightPorts[] = {RIGHT_FRONT, RIGHT_MIDDLE, RIGHT_BACK};//20
@@ -57,39 +45,11 @@ digital_out BackArm(Brain.ThreeWirePort.E);
 digital_out RightArm(Brain.ThreeWirePort.D);
 digital_out LeftArm(Brain.ThreeWirePort.H);
 
-// Auton variables
-const bool DEBUG = true;
-const int TILE_CONST = 700;
-
-// modes & states
-const int DM_STRAIGHT = 0;
-const int DM_TURN = 1;
-const int DM_DISABLED = 2;
-
-const int CATA_MANUAL = 0;
-const int CATA_SEMI_AUTO = 1;
-const int CATA_AUTO = 2;
-
-// config
-const double slewStep = 0.2; // voltage change per step
-const double kP = 0.05; // for distance
-
-const double turnKP = 0.075;
-const double turnKI = 0.0002;
-const double turnKD = 0.1;
-
-// Straight drive config
-const double lrKp = 0.05; // for straight drive (for some unknown reason this doesn't work unless i use division)
-const double lrMax = 0.5; // max change in left/right power (decreases faster side)
-
 // runtime
 double targetPower = 0;
 double drivePower = 8;
-double leftStart = 0;
-double rightStart = 0;
 double leftTarget = 0;
 double rightTarget = 0;
-double lastOut = 0;
 double lastError = 0;
 double targetTurn = 0;
 double integral = 0;
@@ -103,14 +63,6 @@ bool disableCataSwitch = false; // Does what it says
 int lastBatterPercentage = 0;
 
 bool disableCataTask = false;
-bool skillsCataThing = false;
-
-// Math utils =================================================================================
-int sign(double num){
-    if (num > 0) return 1;
-    if (num < 0) return -1;
-    return 0;
-}
 
 // Auton Code =================================================================================
 void stopDrive(){
@@ -170,8 +122,8 @@ int autonDriveTask(){
             double l_pos = leftFront.position(degrees);
             double r_pos = rightFront.position(degrees);
 
-            l_out = l_error * kP;
-            r_out = r_error * kP;
+            l_out = l_error * driveKP;
+            r_out = r_error * driveKP;
 
             if ((fabs(l_error) + fabs(r_error)) / 2 < 600){ // if we're close to the target, slow down
                 drivePower *= 0.95;
@@ -179,20 +131,6 @@ int autonDriveTask(){
                 drivePower += (targetPower - drivePower) / 10;
             }
             
-            int lr_out = lr_error / lrKp;
-            // limit lr_out to -lrMax to lrMax
-            if (lr_out > lrMax) lr_out = lrMax;
-            if (lr_out < -lrMax) lr_out = -lrMax;
-
-
-            // limit to -drivePower to drivePower
-            if (l_out > drivePower) l_out = drivePower;
-            if (l_out < -drivePower) l_out = -drivePower;
-            if (r_out > drivePower) r_out = drivePower;
-            if (r_out < -drivePower) r_out = -drivePower;
-
-            lastOut = (fabs(l_out) + fabs(r_out)) / 2;
-
             // Straight'ness correction
             if (Inertial.rotation(degrees) > targetTurn){
                 l_out *= 0.9;
@@ -253,11 +191,6 @@ int cataTask(){
         task::sleep(10);
         if(disableCataTask) continue;
 
-        // Brain.Screen.setCursor(1, 1);
-        // Brain.Screen.print("Cata: %f", CataEncoder.position(degrees));
-        // Brain.Screen.newLine();
-        // Brain.Screen.print("Cata Ball: %f", CataBallDistance.objectDistance(inches));
-
         if (cataMode == CATA_SEMI_AUTO){
             if (CataEncoder.position(degrees) > 85 && !cataStopped){
                 CataMotor.stop();
@@ -296,9 +229,6 @@ void driveAsync(double left, double right, double power){
     targetTurn = Inertial.rotation();
     driveMode = DM_STRAIGHT;
 
-    leftStart = leftBack.position(degrees);
-    rightStart = rightBack.position(degrees);
-
     leftTarget = leftFront.position(degrees) + (left * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
     rightTarget = rightFront.position(degrees) + (right * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
 }
@@ -336,34 +266,8 @@ bool drive(int left, int right){
 }
 
 // Autons ===============================
-void pushInTouchPole(){
-    drive(2.5, 2.5, 5); // push the ball in the goal
-    drive(-0.3, -0.3, 5); // back up
-    drive(-400, 0, 5); // turn to be parallel with the non-driverbox sides
-    BackArm.set(true);
-    drive(-2.2, -2.2, 5); // drive back into the middle corner thingy
-    drive(200, -200, 12); // turn more into the pole
-}
-
 void descoreAuton(){
     drive(-50000, 50000, 12);
-}
-
-void pushInAndDescore(){
-    // drive(1400, 1400, 7);
-    // drive(800, 0, 7);
-    // drive(100, 100, 7);
-    // BackArm.set(true);
-
-    drive(-300, -300, 3); // line up with the line parallel to the goal
-    drive(-200, 200); // turn to be parallel with the corner thingy
-    resetTracking();
-    drive(-390, -390);
-    drive(300, -300);
-    BackArm.set(true);
-    resetTracking();
-    drive(-200, -350);
-    drive(-300, 300, 12);
 }
 
 void justGoForward(){
@@ -428,51 +332,6 @@ void nearSideAuton(){
     resetTracking();
     drive(1.6, 1.6, 9);
     drive(0.3, 0.3, 5);
-
-
-    // drive(-1.3, -1.3, 7);
-    // drive(75, -75, 6);
-    // resetTracking();
-    // drive(-0.8, -0.8, 7);
-    // drive(170, -170, 5);
-    // resetTracking();
-    // drive(-0.6, -0.6, 9);
-    // BackArm.set(false);
-
-
-    // drive(0.35, 0.35, 5); // get a little away from the corner
-    // drive(350, -350, 5); // turn to go touch the thingy
-    // resetTracking();
-
-    // drive(600, 960, 7); // should be pointed straight at the bar
-    // resetTracking();
-
-    // drive(1.8, 1.8, 7); // drive to the bar
-    // drive(0.35, 0.35, 2.4);
-
-    // Get the ball out of the corner
-    // resetTracking();
-    // drive(0.75, 0.75, 7);
-    // resetTracking();
-    // drive(275, -275, 7);
-    // BackArm.set(true);
-    // resetTracking();
-    // drive(-0.14, -0.14, 7);
-    // resetTracking();
-    // wait(0.5, sec);
-    // drive(-300, 300, 9);
-    // resetTracking();
-    // BackArm.set(false);
-
-    // // line up with the bar
-    // drive(355, -355, 9);
-    // resetTracking();
-    // drive(0.9, 0.9, 9);
-    // resetTracking();
-    // drive(-140, 140, 9);
-    // resetTracking();
-
-    // drive(1.4, 1.4, 9);
 }
 
 
