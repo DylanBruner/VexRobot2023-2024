@@ -44,7 +44,6 @@ limit CataSwitch(Brain.ThreeWirePort.A);
 digital_out BackArm(Brain.ThreeWirePort.E);
 digital_out RightArm(Brain.ThreeWirePort.D);
 digital_out LeftArm(Brain.ThreeWirePort.H);
-
 // runtime
 double targetPower = 0;
 double drivePower = 8;
@@ -503,8 +502,8 @@ void motorTester(){
 }
 
 int main() {
-    task dt(autonDriveTask);
-    task ct(cataTask);
+    // task dt(autonDriveTask);
+    // task ct(cataTask);
 
     // Conf igure some other stuff
     LeftMotors.setReversed(true);

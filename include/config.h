@@ -1,12 +1,12 @@
 #include <vex.h>
 
 // Devices ====================================================================
-const int LEFT_FRONT = vex::PORT7;
-const int LEFT_MIDDLE = vex::PORT21;
-const int LEFT_BACK = vex::PORT10;
-const int RIGHT_FRONT = vex::PORT8;
-const int RIGHT_MIDDLE = vex::PORT19;
-const int RIGHT_BACK = vex::PORT18;
+const int LEFT_FRONT = vex::PORT20;
+const int LEFT_MIDDLE = vex::PORT17;
+const int LEFT_BACK = vex::PORT16;
+const int RIGHT_FRONT = vex::PORT19; 
+const int RIGHT_MIDDLE = vex::PORT18;
+const int RIGHT_BACK = vex::PORT15;
 const int CATA_PORT = vex::PORT6;
 const int WINCH_PORT = vex::PORT4;
 
