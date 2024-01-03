@@ -19,7 +19,7 @@ brain       Brain;
 controller  Controller1;
 
 // Drive motors
-int32_t rightPorts[] = {RIGHT_FRONT, RIGHT_MIDDLE, RIGHT_BACK};//20
+int32_t rightPorts[] = {RIGHT_FRONT, RIGHT_MIDDLE, RIGHT_BACK};
 int32_t leftPorts[] = {LEFT_FRONT, LEFT_MIDDLE, LEFT_BACK};
 // all blue motors
 motor leftFront = motor(LEFT_FRONT, gearSetting::ratio6_1);
@@ -31,19 +31,20 @@ motor rightBack = motor(RIGHT_BACK, gearSetting::ratio6_1);
 BetterMotorGroup RightMotors(rightPorts, 3);
 BetterMotorGroup LeftMotors(leftPorts, 3);
 
-// Other motors
-motor CataMotor(CATA_PORT);
-
 // Sensors
-rotation CataEncoder(CATA_ENCODER, true);
-vex::distance CataBallDistance(CATA_BALL_DISTANCE);
-inertial Inertial(PORT13);
+inertial Inertial(INERTIAL_PORT);
 
-motor WinchMotor(WINCH_PORT, gearSetting::ratio36_1);
-limit CataSwitch(Brain.ThreeWirePort.A);
+// lift top = D
+// power lift down = E
+// power up = G
+
+digital_out FrontArms(Brain.ThreeWirePort.F);
 digital_out BackArm(Brain.ThreeWirePort.E);
-digital_out RightArm(Brain.ThreeWirePort.D);
-digital_out LeftArm(Brain.ThreeWirePort.H);
+
+digital_out TopLiftPiston(Brain.ThreeWirePort.D);
+digital_out PowerUpPiston(Brain.ThreeWirePort.G);
+digital_out PowerDownPiston(Brain.ThreeWirePort.H); //
+
 // runtime
 double targetPower = 0;
 double drivePower = 8;
@@ -179,41 +180,6 @@ int autonDriveTask(){
     }
 }
 
-// Runs in the background, manages the cata
-// does things like full and semi-auto
-int cataTask(){
-    CataEncoder.resetPosition();
-    while (true){
-        task::sleep(10);
-        if(disableCataTask) continue;
-
-        if (cataMode == CATA_SEMI_AUTO){
-            if (CataEncoder.position(degrees) > 85 && !cataStopped){
-                CataMotor.stop();
-                cataStopped = true;
-            } else if (cataStopped && CataEncoder.position(degrees) < 85){
-                cataStopped = false;
-            }
-        } else if (cataMode == CATA_AUTO){
-            if (CataEncoder.position(degrees) > 85 && !cataStopped && !shootingBall){
-                CataMotor.stop();
-                cataStopped = true;
-            } else if (cataStopped && CataBallDistance.objectDistance(inches) < 3){
-                cataStopped = false;
-                shootingBall = true;
-                Controller1.rumble(".");
-            } else if (!cataStopped || shootingBall) {
-                CataMotor.spin(fwd, 12, volt);
-            }
-
-            if (CataEncoder.position(degrees) < 5){
-                shootingBall = false;
-                Controller1.rumble("_");
-            }
-        }
-    }
-}
-
 bool isDriving(){
     return fabs(leftFront.velocity(pct)) != 0 || fabs(rightFront.velocity(pct)) != 0; 
 }
@@ -263,168 +229,79 @@ bool drive(int left, int right){
 // Autons ===============================
 void dummyAuton(){} // does nothing
 
-void descoreAuton(){
-    drive(-50000, 50000, 12);
-}
-
 void justGoForward(){
     drive(5, 5, 9);
     drive(-0.75, -0.75, 9);
 }
 
-void winpointAuton(){
-    double startTime = Brain.timer(timeUnits::msec);
-    // Push the ball in the goal
-    drive(2, 2, 9);
-
-    drive(-0.3, -0.3, 4); // back up a tad in case we've gone under the goal
-    drive(-100, 100, 7);
-    resetTracking();
-    drive(0.4, 0.4, 4);
-    resetTracking();
-        
-    // Get the ball out of the corner
+void nearSideWinpoint(){
     BackArm.set(true);
-    drive(-0.45, -0.45, 8);
-    drive(-200, -600, 4);
-    BackArm.set(false);
-
-    // drive back to the bar after pushing the ball out of the corner
-    resetTracking();
-    drive(-600, -900, 8);
-    resetTracking();
-    drive(-700, 700, 5);
-    resetTracking();
-    drive(1.65, 1.65, 8);
-    drive(0.2, 0.2, 4);
-
-    double timeElapsed = Brain.timer(timeUnits::msec) - startTime;
-    Controller1.Screen.clearScreen();
-    Controller1.Screen.setCursor(1, 1);
-    Controller1.Screen.print("Time Elapsed: %f", timeElapsed);
-}
-
-void nearSideAuton(){
-    // push the pre-load then smack it into the goal
-    drive(1, 1, 6);
-    drive(250, -290, 6);
-    resetTracking();
-    LeftArm.set(true);
-    wait(1, sec);
-    LeftArm.set(false);
-
+    
     // get the ball out of the corner
-    BackArm.set(true);
-    wait(0.5, sec);
-    drive(-300, 300, 6);
-    resetTracking();
+    drive(-0.15, -0.15, 8);
+    drive(-0.5, 0.5, 4);
     BackArm.set(false);
-    drive(650, -650, 8);
-    resetTracking();
-    drive(1, 1, 9);
-    resetTracking();
-    drive(-140, 140, 9);
-    resetTracking();
-    drive(1.6, 1.6, 9);
+    drive(0.15, 0.15, 5);
+
+    // go touch the bar
+    drive(-0.38, 0.38, 4);
+    drive(-0.6, -0.6, 6);
+    drive(-0.19, 0.19, 6);
+    LeftMotors.setStopping(coast);
+    RightMotors.setStopping(coast);
+    // drive(-1, -1, 6);
+    driveMode = DM_DISABLED; // disable the drive task
+    _spinLeft(reverse, 4);
+    _spinRight(reverse, 4);
+    wait(1, seconds);
+    stopDrive();
+
+    wait(5, seconds);
+    LeftMotors.setStopping(brake);
+    RightMotors.setStopping(brake);
+}
+
+void farSideWinpoint(){
+    // push the ball into the goal and flatten out
+    drive(-2, -2, 9);
     drive(0.3, 0.3, 5);
-}
+    drive(-0.2, 0.2, 6);
 
+    // go get the ball out of the corner
+    drive(-0.5, -0.5, 6);
+    drive(0.5, 0.5, 6);
+    drive(0.5, -0.5, 6);
+    drive(0.5, 0.5, 6);
+    BackArm.set(true);
+    drive(0.27, -0.27, 6);
+    drive(-0.45, -0.45, 6);
+    drive(-0.3, 0.3, 6);
 
-bool disableRebound = false;
-void skills_onCataPressed(){
-    CataMotor.stop();
-    wait(2000, msec);
-    if (disableRebound) return;
-    CataMotor.spin(fwd, 12, volt);
-}
-
-void skills_onCataRelease(){
-    CataMotor.stop();
-    // CataMotor.spinFor(-150, deg, 100, velocityUnits::pct);
-    CataMotor.spin(fwd, 12, volt);
-}
-
-int holdCataDown(){
-    while (true){
-        task::sleep(10);
-        if (CataEncoder.position(deg) < 70){
-            CataMotor.spin(fwd, 12, volt);
-        } else {
-            CataMotor.stop();
-        }
-    }
-}
-
-void skillsAuton(){
-    driveMode = DM_DISABLED;
-    disableCataTask = true;
-    CataMotor.spin(fwd, 12, volt);
-    _spinLeft(reverse, 1.5);
-    _spinRight(reverse, 1.5);
-    wait(44.5*1000, msec);
-    Controller1.rumble("...");
-    wait(3*1000, msec);
-    _spinLeft(fwd, 0);
-    _spinRight(fwd, 0);
-
-    disableRebound = true;
-    // CataSwitch.pressed(skills_onCataPressed);
-    task t(holdCataDown);
-    resetTracking();
-    drive(350, 0, 5);
-    resetTracking();
-    drive(4.75, 4.75, 11);
-    drive(-300, 300, 9);
-    resetTracking();
-    drive(0.5, 0.5, 11);
-    drive(-160, 160, 9);
-    resetTracking();
-    drive(2.5, 2.5, 11);
-    drive(350, -350, 9);
-    LeftArm.set(true);
-    RightArm.set(true);
-    resetTracking();
-    drive(100, -100, 9);
-    resetTracking();
-    drive(1, 1, 12);
-    drive(-1, -1, 12);
+    BackArm.set(false);
+    drive(0.5, 0.5, 6);
+    drive(0.7, -0.7, 6);
 }
 
 // End of auton code ==========================================================================
 
 // Driver Code ================================================================================
-void onCataSwitchPress(){
-    if (disableCataSwitch) return;
-    CataMotor.stop();
-}
-
-void onCataControllerButtonPress(){
-    CataMotor.setStopping(hold);
-    CataMotor.spin(fwd, 12, volt);
-}
-
-void onCataControllerButtonRelease(){
-    CataMotor.stop();
-}
-
-void onButtonUpPressed(){
-    LeftArm.set(true);
-    RightArm.set(true);
-}
-
-void onButtonDownPressed(){
-    LeftArm.set(false);
-    RightArm.set(false);
-}
-
 void driver(){
     stopDrive(); // Disable auton drive task
-    // CataSwitch.pressed(onCataSwitchPress);
-    Controller1.ButtonR1.pressed(onCataControllerButtonPress);
-    Controller1.ButtonR1.released(onCataControllerButtonRelease);
-    Controller1.ButtonUp.pressed(onButtonUpPressed);
-    Controller1.ButtonDown.pressed(onButtonDownPressed);
 
+    Controller1.ButtonX.pressed([](){
+        PowerDownPiston.set(true); // this is inverted
+        PowerUpPiston.set(true);
+    });
+
+    Controller1.ButtonB.pressed([](){
+        PowerDownPiston.set(true); // this is inverted
+        PowerUpPiston.set(false);
+    });
+
+    Controller1.ButtonY.pressed([](){
+        PowerDownPiston.set(false); // this is inverted
+        PowerUpPiston.set(false);
+    });
     
     while(true){
         if (lastBatterPercentage != Brain.Battery.capacity(percent)){
@@ -433,33 +310,23 @@ void driver(){
             Controller1.Screen.setCursor(1, 1);
             Controller1.Screen.print("Battery: %d%%", lastBatterPercentage);
         }
-        
-        RightMotors.spin(fwd, Controller1.Axis2.position(), pct);
-        LeftMotors.spin(fwd, Controller1.Axis3.position(), pct);
-        
-        // Cata
-        if (Controller1.ButtonY.pressing()){
-            CataMotor.spin(reverse, 12, volt);
-        } else if (!Controller1.ButtonR1.pressing() && !Controller1.ButtonB.pressing() && !(cataMode == CATA_AUTO)){
-            CataMotor.stop();
+
+        // Side Arms ==========
+        if (Controller1.ButtonUp.pressing()) {
+            FrontArms.set(true);
+        } else if (Controller1.ButtonDown.pressing()) {
+            FrontArms.set(false);
         }
 
-        // For the start of the match, launching pre-loads
-        if (Controller1.ButtonB.pressing()){
-            disableCataSwitch = true;
-            CataMotor.spin(fwd, 12, volt);
-        } else {disableCataSwitch = false;}
-
-        // Winch
-        if (Controller1.ButtonDown.pressing() && Controller1.ButtonRight.pressing()){
-            WinchMotor.spin(fwd, 12, volt);
-            CataMotor.setStopping(coast);
-        } else {WinchMotor.stop();}
-
-        // Back Arm
-        if (Controller1.ButtonL1.pressing()){
+        // Back Arm ==========
+        if (Controller1.ButtonLeft.pressing()) {
             BackArm.set(true);
-        } else {BackArm.set(false);}
+        } else if (Controller1.ButtonRight.pressing()) {
+            BackArm.set(false);
+        }
+
+        RightMotors.spin(fwd, Controller1.Axis2.position(), pct);
+        LeftMotors.spin(fwd, Controller1.Axis3.position(), pct);        
     }
 }
 // End of driver code =========================================================================
@@ -502,24 +369,26 @@ void motorTester(){
 }
 
 int main() {
-    // task dt(autonDriveTask);
-    // task ct(cataTask);
+    task dt(autonDriveTask);
 
     // Conf igure some other stuff
     LeftMotors.setReversed(true);
     LeftMotors.setStopping(brake);
     RightMotors.setStopping(brake);
-    CataMotor.setStopping(hold); 
 
+    Inertial.calibrate();
+    // while (Inertial.isCalibrating()){
+        // task::sleep(10);
+    // }
 
-    AutonSelector selector = AutonSelector();
-    selector.setCompetitionMode(true);
-    selector.setDriver(driver);
-    selector.addAuton(driver, "Driver Control");
-    selector.addAuton(dummyAuton, "No Auton");
-    selector.addAuton(justGoForward, "Drive Forward");
-    selector.addAuton(winpointAuton, "Winpoint Auton");
-    selector.addAuton(skillsAuton, "Skills Auton");
-    selector.addAuton(nearSideAuton, "Near Side Auton");
-    selector.run(&Controller1, &Brain);
+    // nearSideWinpoint();
+    farSideWinpoint();
+
+    // AutonSelector selector = AutonSelector();
+    // selector.setCompetitionMode(true);
+    // selector.setDriver(driver);
+    // selector.addAuton(driver, "Driver Control");
+    // selector.addAuton(dummyAuton, "No Auton");
+    // selector.addAuton(justGoForward, "Drive Forward");
+    // selector.run(&Controller1, &Brain);
 }
