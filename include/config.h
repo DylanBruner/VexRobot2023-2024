@@ -9,6 +9,7 @@ const int RIGHT_MIDDLE = vex::PORT13;
 const int RIGHT_BACK = vex::PORT14;
 
 const int INTAKE_PORT = vex::PORT15;
+const int FLYWHEEL_PORT = vex::PORT17;
 
 const int INERTIAL_PORT = vex::PORT16;
 
@@ -27,7 +28,9 @@ const int CATA_SEMI_AUTO = 1;
 const int CATA_AUTO = 2;
 
 // config
-const double driveKP = 0.05; // for distance
+// const double driveKP = 0.05; // for distance
+const double driveKP = 0.15; // for distance
+
 const double turnKP = 0.075;
 const double turnKI = 0.0002;
 const double turnKD = 0.1;
