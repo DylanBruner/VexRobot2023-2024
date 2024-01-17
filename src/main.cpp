@@ -11,6 +11,7 @@
 #include "auton_selector.h"
 #include "odometry.h"
 #include "config.h"
+#include "util.h"
 #include <math.h>
 
 using namespace vex;
@@ -85,6 +86,7 @@ void resetTracking(){
     rightFront.resetPosition();
     rightBack.resetPosition();
     rightMiddle.resetPosition();
+
 }
 
 // this needs code added to it that makes sure the values stay near each other
@@ -99,6 +101,15 @@ void _spinRight(directionType dir, double volts){
     rightMiddle.spin(dir, volts, volt);
     rightBack.spin(dir, volts, volt);
 }
+
+bool isDriving(){
+    return (fabs(leftFront.velocity(pct)) > 5 || fabs(rightFront.velocity(pct)) > 5) && driveMode != DM_DISABLED;
+}
+
+
+double startErrorLeft = 0;
+double startErrorRight = 0;
+double lastSpeed = 0;
 
 // Main drive task
 int autonDriveTask(){
@@ -117,73 +128,56 @@ int autonDriveTask(){
         double r_out = 0;
 
         if (driveMode == DM_STRAIGHT){
-            double l_error = leftFront.position(degrees) - leftTarget;
-            double r_error = rightFront.position(degrees) - rightTarget;
-            // lr should be the difference between the two
-
             double l_pos = leftFront.position(degrees);
             double r_pos = rightFront.position(degrees);
 
-            // l_out = l_error * driveKP;
-            // r_out = r_error * driveKP;
-            // drive power needs to be calculated into the equation
-            l_out = (l_error * driveKP) + (drivePower * 0.5);
-            r_out = (r_error * driveKP) + (drivePower * 0.5);
+            double l_error = l_pos - leftTarget;
+            double r_error = r_pos - rightTarget;
 
-            if (l_out > drivePower) l_out = drivePower;
-            if (l_out < -drivePower) l_out = -drivePower;
-            if (r_out > drivePower) r_out = drivePower;
-            if (r_out < -drivePower) r_out = -drivePower;
+            double percent = 1 - ((fabs(l_error / startErrorLeft) + fabs(r_error / startErrorRight)) / 2);
+            double scaled = fmax(fmin(percent * 3, 1), 0.3);
 
-            drivePower = targetPower;
-            if ((fabs(l_error) + fabs(r_error)) / 2 < 600){ // if we're close to the target, slow down
-                drivePower *= 0.95;
-            } else {
-                drivePower += (targetPower - drivePower) / 10;
+            l_out = targetPower * (l_error / startErrorLeft) * scaled;
+            r_out = targetPower * (r_error / startErrorRight) * scaled;
+            if (l_error > 0) {
+                l_out = -l_out;
             }
-            
-            // Straight'ness correction
-            // if (Inertial.rotation(degrees) > targetTurn){
-            //     l_out *= 0.9;
-            // } else if (Inertial.rotation(degrees) < targetTurn){
-            //     r_out *= 0.9;
-            // }
+
+            if (r_error > 0) {
+                r_out = -r_out;
+            }
+
+            if (fabs(r_error) < 3) r_out = 0;
+            if (fabs(l_error) < 3) l_out = 0;
+            if (fabs(l_error) < 3 && fabs(r_error) < 7) driveMode = DM_DISABLED;
         } else if (DM_TURN){
-            double error = targetTurn - Inertial.rotation(degrees);
-            if (fabs(error) < 1 && leftFront.velocity(pct) < 1 && rightFront.velocity(pct) < 1) {
-                stopDrive(); // also sets the drive to disabled
-            }
+            double l_pos = leftFront.position(degrees);
+            double r_pos = rightFront.position(degrees);
 
-            double derivative = (error - lastError) * turnKD;
-            lastError = error;
-            integral += error;
-            double proportional = error * turnKP;
-
-            if (fabs(error) > 22 * (180 / M_PI)) integral = 0;
-            if (integral > 100) integral = 100;
-            if (-integral > 100) integral = -100;
-
-            double out = proportional + derivative + (integral * turnKI);
+            double l_error = l_pos - leftTarget;
+            double r_error = r_pos - rightTarget;
+            double avg_error = (fabs(l_error) + fabs(r_error)) / 2;
+            double percent = (avg_error / startErrorLeft);
+            Brain.Screen.setCursor(5, 1);
+            Brain.Screen.print("Percent: %f   ", percent);
 
             drivePower = targetPower;
 
-            if (out > drivePower) out = drivePower;
-            if (out < -drivePower) out = -drivePower;
+            if (l_error < 0) {
+                l_out = -drivePower;
+            } else {
+                l_out = drivePower;
+            }
 
-            Brain.Screen.setCursor(1, 1);
-            Brain.Screen.print("Error: %f   ", error);
+            if (r_error < 0) {
+                r_out = -drivePower;
+            } else {
+                r_out = drivePower;
+            }
 
-            Brain.Screen.newLine();
-            Brain.Screen.print("Target: %f   ", targetTurn);
-            Brain.Screen.newLine();
-            Brain.Screen.print("Out: %f   ", out);
-            Brain.Screen.newLine();
-            Brain.Screen.print("Heading: %f   ", Inertial.rotation());
-
-
-
-            l_out = -out;
-            r_out = out;
+            if (fabs(r_error) < 7) r_out = 0;
+            if (fabs(l_error) < 7) l_out = 0;
+            if (fabs(l_error) < 7 && fabs(r_error) < 7) driveMode = DM_DISABLED;
         }
 
         _spinLeft(fwd, -l_out);
@@ -191,31 +185,27 @@ int autonDriveTask(){
     }
 }
 
-bool isDriving(){
-    return fabs(leftFront.velocity(pct)) > 5 || fabs(rightFront.velocity(pct)) > 5; 
-}
 
 void driveAsync(double left, double right, double power){
-    drivePower = power * 0.4; // 10% power
-    // drivePower = power;
     targetPower = power;
-    targetTurn = Inertial.rotation();
+    drivePower = 0;
     driveMode = DM_STRAIGHT;
 
-    leftTarget = leftFront.position(degrees) + (left * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
-    rightTarget = rightFront.position(degrees) + (right * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
+    startErrorLeft = leftTarget = leftFront.position(degrees) + (left * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
+    startErrorRight = rightTarget = rightFront.position(degrees) + (right * (driveMode == DM_STRAIGHT ? TILE_CONST : 1));
 }
 
-void turnAsync(double degrees, double power){
+void turnAsync(double left, double right, double power){
     integral = 0;
     driveMode = DM_TURN;
     drivePower = power * 0.10;
     targetPower = power;
-    targetTurn = Inertial.rotation() + degrees;
+    startErrorLeft = leftTarget = leftFront.position(degrees) + (left * TURN_CONST);
+    startErrorRight = rightTarget = rightFront.position(degrees) + (right * TURN_CONST);
 }
 
-void turn(double degrees, double power){
-    turnAsync(degrees, power);
+void turn(double left, double right, double power){
+    turnAsync(left, right, power);
     task::sleep(1000);
     while (driveMode != DM_DISABLED){
         task::sleep(100);
@@ -248,110 +238,33 @@ void justGoForward(){
 
 void nearSideWinpoint(){
     // Intake a ball
-    drive(0.24, 0.24, 5);
+    drive(0.5, 0.5, 12);
+
     intakeMotor.setVelocity(100, pct);
     intakeMotor.spinFor(-600, degrees, false);
     wait(0.2, seconds);
 
 
-    // Get the ball out of the corner
-    drive(-0.275, 0.275, 8);
-    drive(0.5, 0.5, 8);
-    drive(0.5, -0.5, 8);
+    // get the ball out of the corner
+    turn(55, -55, 6);
+    resetTracking();
+    drive(-0.13, -0.13, 6);
     BackArm.set(true);
-    drive(-0.25, 0.25, 20);
+    turn(-60, 60, 12);
+    resetTracking();
     BackArm.set(false);
 
-    drive(-0.4, 0.4, 8);
-    drive(-0.45, -0.45, 4.5);
+    // go out-take the ball
+    turn(135, -135, 7);
+    resetTracking();
+    drive(1.45, 1.45, 12);
+    intakeMotor.spinFor(1500, degrees, false);
+    drive(0.5, 0.5, 12);
+    resetTracking();
 
-    drive(0.82, -0.82, 6);
-
-    drive(1.15, 1.15, 8);
-    intakeMotor.spinFor(1000, degrees, true);
-
-    drive(-0.85, -0.85, 8);
-    drive(-1, 1, 7);
-
-    drive(-1, -1, 7);
-    driveMode = DM_DISABLED;
-    LeftMotors.setStopping(coast);
-    RightMotors.setStopping(coast);
-    _spinLeft(reverse, 2);
-    _spinRight(reverse, 2);
-    wait(4, seconds);
-    _spinLeft(fwd, 2);
-    _spinRight(fwd, 2);
-    wait(0.1, seconds);
-    stopDrive();
-
-    // drive(0.3, -0.3, 6);
-    // drive(0.15, 0.15, 6);
-    // BackArm.set(true);
-    // drive(-0.2, 0.2, 6);
-
-    // drive(0, 0.5, 7);
-    // drive(1.05, 1.05, 5);
-    // drive(0.3, -0.3, 7);
-
-
-    // // Push the ball into the goal
-    // drive(-2, -2, 7);
-
-    // // Flatten out by using the goal
-    // drive(0.2, 0.2, 5);
-    // drive(0.1, -0.18, 6);
-    // drive(-0.3, -0.3, 6);
-
-    // // Go get the ball out of the corner
-    // drive(0.1, 0.6, 6);
-    // drive(0.9, 0.9, 6);
-    // BackArm.set(true);
-    // drive(-0.85, 0.85, 6);
-
-    // // Go touch the bar
-    // BackArm.set(false);
-    // drive(-0.3, 0.3, 6);
-    // drive(-1.25, -1.25, 2);
-    // drive(-0.175, 0.175, 6);
-
-    // drive(-0.8, -0.8, 7);
-    // driveMode = DM_DISABLED;
-    // _spinLeft(reverse, 2);
-    // _spinRight(reverse, 2);
-    // wait(4, seconds);
-
-
-    // BackArm.set(true);
-    
-    // // get the ball out of the corner
-    // drive(-0.15, -0.15, 8);
-    // drive(-0.5, 0.5, 4);
-    // BackArm.set(false);
-    // drive(0.15, 0.15, 5);
-
-    // // go touch the bar
-    // drive(-0.38, 0.38, 4);
-    // drive(-0.6, -0.6, 6);
-    // drive(-0.19, 0.19, 6);
-    // LeftMotors.setStopping(coast);
-    // RightMotors.setStopping(coast);
-    // drive(-1, -1, 6);
-    // driveMode = DM_DISABLED; // disable the drive task
-    // _spinLeft(reverse, 4);
-    // _spinRight(reverse, 4);
-    // wait(1, seconds);
-    // stopDrive();
-
-    // wait(3, seconds);
-    // LeftMotors.setStopping(brake);
-    // RightMotors.setStopping(brake);
-
-    // _spinLeft(fwd, 4);
-    // _spinRight(fwd, 4);
-
-    // wait(2, seconds);
-    // stopDrive();
+    // go back and turn around
+    drive(-1.3, -1.3, 12);
+    turn(-200, 200, 7);
 }
 
 void farSideWinpoint(){
@@ -531,8 +444,7 @@ int main() {
     // }
 
     double start = Brain.timer(timeUnits::msec);
-    farSideWinpoint();
-    // driver();
+    nearSideWinpoint();
     Brain.Screen.setCursor(1, 1);
     Brain.Screen.print("Time: %f", Brain.timer(timeUnits::msec) - start);
 

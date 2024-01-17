@@ -17,6 +17,7 @@ const int INERTIAL_PORT = vex::PORT16;
 // Constants ==================================================================
 const bool DEBUG = true;
 const int TILE_CONST = 700;
+const int TURN_CONST = 3.99;
 
 // modes & states
 const int DM_STRAIGHT = 0;
