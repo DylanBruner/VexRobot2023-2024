@@ -42,12 +42,12 @@ inertial Inertial(INERTIAL_PORT);
 // power lift down = E
 // power up = G
 
-digital_out FrontArms(Brain.ThreeWirePort.F);
+digital_out FrontArmsOne(Brain.ThreeWirePort.F);
 digital_out BackArm(Brain.ThreeWirePort.E);
 
-digital_out TopLiftPiston(Brain.ThreeWirePort.D);
-digital_out PowerUpPiston(Brain.ThreeWirePort.G);
-digital_out PowerDownPiston(Brain.ThreeWirePort.H); //
+digital_out FrontArmsTwo(Brain.ThreeWirePort.D);
+digital_out LiftPowerDownPiston(Brain.ThreeWirePort.G);
+digital_out LiftUpPiston(Brain.ThreeWirePort.H); //
 
 // runtime
 double targetPower = 0;
@@ -86,7 +86,6 @@ void resetTracking(){
     rightFront.resetPosition();
     rightBack.resetPosition();
     rightMiddle.resetPosition();
-
 }
 
 // this needs code added to it that makes sure the values stay near each other
@@ -103,7 +102,7 @@ void _spinRight(directionType dir, double volts){
 }
 
 bool isDriving(){
-    return (fabs(leftFront.velocity(pct)) > 5 || fabs(rightFront.velocity(pct)) > 5) && driveMode != DM_DISABLED;
+    return (fabs(leftFront.velocity(pct)) > 10 || fabs(rightFront.velocity(pct)) > 10) && driveMode != DM_DISABLED;
 }
 
 
@@ -147,11 +146,11 @@ int autonDriveTask(){
             drivePower = targetPower;
             
             // Straight'ness correction
-            if (Inertial.rotation(degrees) > targetTurn){
-                l_out *= 0.9;
-            } else if (Inertial.rotation(degrees) < targetTurn){
-                r_out *= 0.9;
-            }
+            // if (Inertial.rotation(degrees) > targetTurn){
+            //     l_out *= 0.9;
+            // } else if (Inertial.rotation(degrees) < targetTurn){
+            //     r_out *= 0.9;
+            // }
         } else if (DM_TURN){
             double error = targetTurn - Inertial.rotation(degrees);
             if (fabs(error) < 1 && leftFront.velocity(pct) < 1 && rightFront.velocity(pct) < 1) {
@@ -231,7 +230,7 @@ void turn(double left, double right, double power){
 // Auto-stops when velocity drops to 0
 bool drive(double left, double right, double power){
     driveAsync(left, right, power);
-    task::sleep(1000);
+    task::sleep(500);
     while (isDriving()){
         task::sleep(100);
     }
@@ -243,6 +242,11 @@ bool drive(int left, int right){
     return drive(left, right, drivePower);
 }
 
+void setFrontArms(bool state){
+    FrontArmsOne.set(state);
+    FrontArmsTwo.set(!state);
+}
+
 // Autons ===============================
 void dummyAuton(){} // does nothing
 
@@ -252,11 +256,13 @@ void justGoForward(){
 }
 
 void nearSideWinpoint(){
+    setFrontArms(false);
+
     // Intake a ball
     drive(0.5, 0.5, 8);
 
     intakeMotor.setVelocity(100, pct);
-    intakeMotor.spinFor(-800, degrees, false);
+    intakeMotor.spinFor(-900, degrees, false);
     wait(0.2, seconds);
 
     // get the ball out of the corner
@@ -267,9 +273,10 @@ void nearSideWinpoint(){
     BackArm.set(false);
 
     // go out-take the ball into the goal
-    drive(0.6, -0.6, 6);
-    drive(0.5, 0.5, 6);
-    drive(-0.15, 0.15, 6);
+    drive(0.5, -0.5, 6);
+    drive(0.6, 0.6, 6);
+    drive(-0.05, 0.15, 6);
+
     drive(1, 1, 6);
     intakeMotor.spinFor(1800, degrees, false);
     wait(0.5, seconds);
@@ -282,65 +289,160 @@ void nearSideWinpoint(){
     driveMode = DM_DISABLED; // disable the drive task
     _spinLeft(reverse, 2.5);
     _spinRight(reverse, 2.5);
-    wait(2.5, seconds);
+    wait(0.5, seconds);
+    while ((leftFront.efficiency() + leftMiddle.efficiency() + leftBack.efficiency()) / 3 > 0.15){
+        task::sleep(10);
+    }
+    Controller1.rumble("...");
     stopDrive();
+    drive(0, 0.1, 6);
 }
 
 void nearSidePoints(){
+    setFrontArms(false);
+
     // Intake a ball
     drive(0.5, 0.5, 8);
 
     intakeMotor.setVelocity(100, pct);
-    intakeMotor.spinFor(-800, degrees, false);
+    intakeMotor.spinFor(-900, degrees, false);
     wait(0.2, seconds);
 
     // get the ball out of the corner
-    drive(0.25, -0.25, 12);
-    drive(-0.22, -0.22, 12);
+    drive(0.25, -0.25, 7);
+    drive(-0.22, -0.22, 7);
     BackArm.set(true);
-    drive(-0.25, 0.25, 12);
+    drive(-0.25, 0.25, 7);
     BackArm.set(false);
 
     // go out-take the ball into the goal
-    drive(0.6, -0.6, 12);
-    drive(0.5, 0.5, 12);
-    drive(-0.15, 0.15, 12);
-    intakeMotor.spinFor(1800, degrees, true);
+    drive(0.6, -0.6, 6);
+    drive(0.5, 0.5, 6);
+    drive(-0.05, 0.15, 6);
+    drive(1, 1, 6);
+    intakeMotor.spinFor(1800, degrees, false);
+    wait(0.5, seconds);
 
-    // go get the ball from the middle
-    drive(-0.5, 0.5, 12);
-    drive(1, 1, 12);
-    drive(0.2, -0.2, 12);
-    drive(1.35, 1.35, 12);
-    drive(-0.2, 0.2, 12);
+    // go turn around to touch the bar
+    drive(-1, -1, 6);
+    drive(1, -1, 6);
+    drive(-1, -1, 6);
 
-    intakeMotor.spinFor(-1600, degrees, false);
-    drive(0.2, 0.2, 8);
-    drive(0.45, 0.45, 2);
+    driveMode = DM_DISABLED; // disable the drive task
+    _spinLeft(reverse, 2.5);
+    _spinRight(reverse, 2.5);
+    wait(0.5, seconds);
+    while ((leftFront.efficiency() + leftMiddle.efficiency() + leftBack.efficiency()) / 3 > 0.15){
+        task::sleep(10);
+    }
+    Controller1.rumble("...");
+    stopDrive();
+    // drive(0, 0.1, 6);
+    drive(1, 1, 6);
 }
 
 void farSideWinpoint(){
-    // Shove the ball in & straighten out
-    drive(-2, -2, 12);
-    drive(-0.1, 0, 12);
-    drive(-0.2, -0.2, 12);
+    // Intake a ball
+    drive(0.5, 0.5, 5);
+    intakeMotor.setVelocity(100, pct);
+    intakeMotor.spinFor(-800, degrees, false);
+    wait(0.2, seconds);
+    drive(-0.4, -0.4, 6);
 
-    // Go get the ball out of the corner
-    drive(0.5, 0.5, 12);
-    drive(0.55, 0, 8);
+    // knock the ball out of the corner
+    drive(0.25, -0.25, 7);
+    drive(1, 1, 7);
+    BackArm.set(true);
+    drive(-0.5, 0.5, 7);
+    drive(-0.1, -0.1, 6);
+    drive(-0.2, 0.2, 7);
+
+    // go push the ball in the goal
+    BackArm.set(false);
+    drive(0.5, -0.5, 6);
+    setFrontArms(true);
+    intakeMotor.spinFor(1800, degrees, false);
+    wait(350, msec);
+    drive(1, 1, 12);
+}
+
+void goBackwardsAuton(){
+    drive(-2, -2, 12);
+    drive(1, 1, 6);
 }
 
 void skillsAuton(){
-    PowerDownPiston.set(true); // this is inverted
-    PowerUpPiston.set(true);
-    TopLiftPiston.set(true);
-    flywheelMotor.spin(fwd, 100, pct);
-    wait(60, seconds);
+    setFrontArms(false);
+
+    // Intake a ball
+    drive(0.5, 0.5, 8);
+
+    intakeMotor.setVelocity(100, pct);
+    intakeMotor.setStopping(hold);
+    intakeMotor.spinFor(-800, degrees, true);
+    wait(0.2, seconds);
+
+    // turn to shoot
+    drive(0.35, -0.35, 6);
+    drive(-0.7, -0.7, 5);
+    flywheelMotor.spin(reverse, 11.5, volt);
+    drive(0.07, -0.03, 6);
+
+    wait(40, seconds);
+    Controller1.rumble(".......");
+    flywheelMotor.stop();
+
+    drive(0.5, 0.8, 6);
+    drive(1.5, 1.5, 6);
+
+    drive(-0.24, 0.24, 6);
+    drive(1, 1, 6);
+    setFrontArms(true);
+    drive(-0.5, 0.5, 6);
+    intakeMotor.spinFor(1800, degrees, false);
+    drive(0.5, 0.5, 12);
+    drive(-1, -1, 12);
+    drive(1.5, 1.5, 12);
+
+    // move the ball we hit
+    drive(-1.15, -1.15, 6);
+    BackArm.set(true);
+    drive(-0.8, 0.8, 7);
+
+    drive(-0.55, 0, 6);
+    drive(-1, 1, 6);
+    drive(1, 1, 6);
+    BackArm.set(false);
+
+    // go over the bar
+    drive(-20, -20, 12);
+
+    drive(1, 1, 7);
+    drive(1, -1, 6);
+    drive(5, 5, 12);
+
+    drive(-1, -1, 12);
+    drive(-0.35, 0, 6);
+    drive(1, 1, 6);
 }
 
 // End of auton code ==========================================================================
 
 // Driver Code ================================================================================
+void liftPowerUp(){
+    LiftUpPiston.set(true);
+    LiftPowerDownPiston.set(true);
+}
+
+void idleLiftDown(){
+    LiftUpPiston.set(false);
+}
+
+void powerLiftDown(){
+    LiftUpPiston.set(false);
+    LiftPowerDownPiston.set(false);
+}
+
 bool liftUp = false;
 bool upperLift = false;
 bool backArm = false;
@@ -351,32 +453,27 @@ bool flywheelSpinning = false;
 void driver(){
     stopDrive(); // Disable auton drive task
 
-    Controller1.ButtonUp.pressed([](){
-        liftUp = !liftUp;
-        PowerDownPiston.set(true); // this is inverted
-        PowerUpPiston.set(liftUp);
-    });
-
-    Controller1.ButtonDown.pressed([](){
-        PowerDownPiston.set(false);
-        PowerUpPiston.set(false);
-        TopLiftPiston.set(false);
-        liftUp = false;
-    });
-
-    Controller1.ButtonLeft.pressed([](){
-        upperLift = !upperLift;
-        TopLiftPiston.set(upperLift);
-    });
-
     Controller1.ButtonB.pressed([](){
+        liftUp = !liftUp;
+        if (liftUp){
+            liftPowerUp();
+        } else {
+            idleLiftDown();
+        }
+    });
+
+    Controller1.ButtonY.pressed([](){
+        powerLiftDown();
+    });
+
+    Controller1.ButtonA.pressed([](){
         backArm = !backArm;
         BackArm.set(backArm);
     });
 
-    Controller1.ButtonY.pressed([](){
+    Controller1.ButtonDown.pressed([](){
         frontArms = !frontArms;
-        FrontArms.set(frontArms); 
+        setFrontArms(frontArms);
     });
 
     Controller1.ButtonL1.pressed([](){
@@ -462,20 +559,51 @@ void motorTester(){
 int main() {
     task dt(autonDriveTask);
 
-    // Conf igure some other stuff
+    // Configure some other stuff
     LeftMotors.setReversed(true);
     LeftMotors.setStopping(brake);
     RightMotors.setStopping(brake);
+    setFrontArms(false);
 
     // Inertial.calibrate();
     // while (Inertial.isCalibrating()){
         // task::sleep(10);
     // }
 
-    double start = Brain.timer(timeUnits::msec);
+    // double start = Brain.timer(timeUnits::msec);
+    // farSideWinpoint();
+    // farSideWinpoint();
+    // Brain.Screen.setCursor(1, 1);
+    // Brain.Screen.print("Time: %f", Brain.timer(timeUnits::msec) - start);
+
+    if (!leftFront.installed() || !leftMiddle.installed() || !leftBack.installed() || 
+        !rightFront.installed() || !rightMiddle.installed() || !rightBack.installed() ||
+        !flywheelMotor.installed() || !intakeMotor.installed()){
+
+        Controller1.Screen.clearScreen();
+        Controller1.Screen.setCursor(1, 1);
+        Controller1.Screen.print("Warning a motor is not connected!");
+        string motorsNotConnected = "";
+        if (!leftFront.installed()) motorsNotConnected += "Left Front, ";
+        if (!leftMiddle.installed()) motorsNotConnected += "Left Middle, ";
+        if (!leftBack.installed()) motorsNotConnected += "Left Back, ";
+        if (!rightFront.installed()) motorsNotConnected += "Right Front, ";
+        if (!rightMiddle.installed()) motorsNotConnected += "Right Middle, ";
+        if (!rightBack.installed()) motorsNotConnected += "Right Back, ";
+        if (!flywheelMotor.installed()) motorsNotConnected += "Flywheel, ";
+        if (!intakeMotor.installed()) motorsNotConnected += "Intake, ";
+        Controller1.Screen.newLine();
+        Controller1.Screen.print(motorsNotConnected.c_str());
+        Controller1.Screen.newLine();
+        Controller1.Screen.print("Press A to continue");
+        while (!Controller1.ButtonA.pressing()){
+            task::sleep(10);
+            Controller1.rumble(".");
+        }
+    }
+
     farSideWinpoint();
-    Brain.Screen.setCursor(1, 1);
-    Brain.Screen.print("Time: %f", Brain.timer(timeUnits::msec) - start);
+    // driver();
 
     // AutonSelector selector = AutonSelector();
     // selector.setCompetitionMode(true);
@@ -483,8 +611,10 @@ int main() {
     // selector.addAuton(driver, "Driver Control");
     // selector.addAuton(dummyAuton, "No Auton");
     // selector.addAuton(nearSideWinpoint, "NearSide WP");
+    // selector.addAuton(nearSidePoints, "NearSide Points");
     // selector.addAuton(farSideWinpoint, "FarSide WP");
     // selector.addAuton(skillsAuton, "Skills Auton");
     // selector.addAuton(justGoForward, "Drive Forward");
+    // selector.addAuton(goBackwardsAuton, "JIC Backwards");
     // selector.run(&Controller1, &Brain);
 }
