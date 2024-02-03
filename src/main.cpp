@@ -256,13 +256,13 @@ void justGoForward(){
 }
 
 void nearSideWinpoint(){
-    setFrontArms(false);
+    // setFrontArms(false);
 
     // Intake a ball
     drive(0.5, 0.5, 8);
 
     intakeMotor.setVelocity(100, pct);
-    intakeMotor.spinFor(-900, degrees, false);
+    intakeMotor.spinFor(-300, degrees, false);
     wait(0.2, seconds);
 
     // get the ball out of the corner
@@ -272,18 +272,21 @@ void nearSideWinpoint(){
     drive(-0.25, 0.25, 7);
     BackArm.set(false);
 
+
     // go out-take the ball into the goal
     drive(0.5, -0.5, 6);
-    drive(0.6, 0.6, 6);
+    drive(0.75, 0.75, 6);
     drive(-0.05, 0.15, 6);
 
     drive(1, 1, 6);
     intakeMotor.spinFor(1800, degrees, false);
     wait(0.5, seconds);
 
+
     // go turn around to touch the bar
     drive(-1, -1, 6);
-    drive(1, -1, 6);
+    // drive(1, -1, 6);
+    drive(-1, 1, 6);
     drive(-1, -1, 6);
 
     driveMode = DM_DISABLED; // disable the drive task
@@ -295,7 +298,7 @@ void nearSideWinpoint(){
     }
     Controller1.rumble("...");
     stopDrive();
-    drive(0, 0.1, 6);
+    drive(0, 0.25, 6);
 }
 
 void nearSidePoints(){
@@ -356,14 +359,31 @@ void farSideWinpoint(){
     drive(-0.5, 0.5, 7);
     drive(-0.1, -0.1, 6);
     drive(-0.2, 0.2, 7);
-
-    // go push the ball in the goal
     BackArm.set(false);
+
+    // go put the ball in the front of the goal
+    drive(0.85, 0.85, 6);
+    drive(0.48, -0.48, 6);
+    drive(1.8, 1.8, 6);
     drive(0.5, -0.5, 6);
     setFrontArms(true);
+    drive(-0.5, -0.5, 6);
+    intakeMotor.setVelocity(100, pct);
     intakeMotor.spinFor(1800, degrees, false);
-    wait(350, msec);
+    wait(0.5, seconds);
+    drive(1, 1, 6);
+    drive(-0.5, -0.5, 6);
+
     drive(1, 1, 12);
+
+    drive(-0.5, -0.5, 6);
+    drive(1, 1, 12);
+
+    drive(-0.5, -0.5, 6);
+
+    setFrontArms(false);
+
+    drive(-0.5, 0.5, 6);
 }
 
 void goBackwardsAuton(){
@@ -388,7 +408,7 @@ void skillsAuton(){
     flywheelMotor.spin(reverse, 11.5, volt);
     drive(0.07, -0.03, 6);
 
-    wait(40, seconds);
+    wait(33, seconds); // 40 seconds
     Controller1.rumble(".......");
     flywheelMotor.stop();
 
@@ -405,17 +425,29 @@ void skillsAuton(){
     drive(1.5, 1.5, 12);
 
     // move the ball we hit
-    drive(-1.15, -1.15, 6);
+    drive(-1.32, -1.32, 6);
     BackArm.set(true);
     drive(-0.8, 0.8, 7);
-
     drive(-0.55, 0, 6);
-    drive(-1, 1, 6);
-    drive(1, 1, 6);
+    drive(-0.85, 0.85, 6);
+    drive(0.5, 0.5, 6);
     BackArm.set(false);
 
+    // align a lil bit
+    setFrontArms(false);
+    drive(1, 1, 6);
+    drive(-0.5, -0.5, 6);
+    setFrontArms(true);
+
     // go over the bar
-    drive(-20, -20, 12);
+    setFrontArms(true);
+    // drive(-26, -26, 12);
+    driveMode = DM_DISABLED; // disable the drive task
+    _spinLeft(reverse, 12);
+    _spinRight(reverse, 12);
+    wait(4, seconds);
+    stopDrive();
+    resetTracking();
 
     drive(1, 1, 7);
     drive(1, -1, 6);
@@ -424,6 +456,13 @@ void skillsAuton(){
     drive(-1, -1, 12);
     drive(-0.35, 0, 6);
     drive(1, 1, 6);
+
+    drive(-1, -1, 6);
+    drive(0.7, -0.7, 6);
+    drive(0.5, 0.5, 6);
+    drive(-0.5, 0.5, 6);
+    drive(1, 1, 12);
+    drive(-1, -1, 12);
 }
 
 // End of auton code ==========================================================================
@@ -449,6 +488,10 @@ bool backArm = false;
 bool frontArms = false;
 
 bool flywheelSpinning = false;
+
+double scaleDrive(double input, int factor){
+    return pow(input, factor) / pow(100, factor - 1);
+}
 
 void driver(){
     stopDrive(); // Disable auton drive task
@@ -513,8 +556,16 @@ void driver(){
             intakeMotor.stop();
         }
 
-        RightMotors.spin(fwd, Controller1.Axis2.position(), pct);
-        LeftMotors.spin(fwd, Controller1.Axis3.position(), pct);        
+        double right = Controller1.Axis2.position();
+        double left = Controller1.Axis3.position();
+
+        right = scaleDrive(right, DRIVE_SCALE_FACTOR);
+        left = scaleDrive(left, DRIVE_SCALE_FACTOR);
+        printf("Left: %f, Right: %f\n", left, right);
+
+
+        RightMotors.spin(fwd, right, pct);
+        LeftMotors.spin(fwd, left, pct);        
     }
 }
 // End of driver code =========================================================================
@@ -602,19 +653,20 @@ int main() {
         }
     }
 
-    farSideWinpoint();
+    // farSideWinpoint();
+    // skillsAuton();
     // driver();
 
-    // AutonSelector selector = AutonSelector();
-    // selector.setCompetitionMode(true);
-    // selector.setDriver(driver);
-    // selector.addAuton(driver, "Driver Control");
-    // selector.addAuton(dummyAuton, "No Auton");
-    // selector.addAuton(nearSideWinpoint, "NearSide WP");
-    // selector.addAuton(nearSidePoints, "NearSide Points");
-    // selector.addAuton(farSideWinpoint, "FarSide WP");
-    // selector.addAuton(skillsAuton, "Skills Auton");
-    // selector.addAuton(justGoForward, "Drive Forward");
-    // selector.addAuton(goBackwardsAuton, "JIC Backwards");
-    // selector.run(&Controller1, &Brain);
+    AutonSelector selector = AutonSelector();
+    selector.setCompetitionMode(true);
+    selector.setDriver(driver);
+    selector.addAuton(driver, "Driver Control");
+    selector.addAuton(dummyAuton, "No Auton");
+    selector.addAuton(nearSideWinpoint, "NearSide WP");
+    selector.addAuton(nearSidePoints, "NearSide Points");
+    selector.addAuton(farSideWinpoint, "FarSide WP");
+    selector.addAuton(skillsAuton, "Skills Auton");
+    selector.addAuton(justGoForward, "Drive Forward");
+    selector.addAuton(goBackwardsAuton, "JIC Backwards");
+    selector.run(&Controller1, &Brain);
 }

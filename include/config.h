@@ -19,6 +19,8 @@ const bool DEBUG = true;
 const int TILE_CONST = 700;
 const int TURN_CONST = 3.99;
 
+const int DRIVE_SCALE_FACTOR = 3; // odd number!
+
 // modes & states
 const int DM_STRAIGHT = 0;
 const int DM_TURN = 1;
