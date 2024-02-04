@@ -29,6 +29,7 @@ const int DRIVE_SCALE_FACTOR = 3; // odd number!
 const int DM_STRAIGHT = 0;
 const int DM_TURN = 1;
 const int DM_DISABLED = 2;
+const int DM_DRIVER = 3;
 
 const int CATA_MANUAL = 0;
 const int CATA_SEMI_AUTO = 1;
