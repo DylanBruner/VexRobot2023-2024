@@ -1,5 +1,7 @@
 #include "vex.h"
 
+#pragma once
+
 class Odometry {
     public:
         Odometry(double tl, double tr, double tb, vex::rotation* left, vex::rotation* right, vex::motor* middle);

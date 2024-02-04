@@ -1,5 +1,5 @@
-#include "odometry.h"
-#include "math.h"
+#include "auton/odometry.h"
+#include <math.h>
 
 Odometry::Odometry(double tl, double tr, double tb, vex::rotation* left, vex::rotation* right, vex::motor* middle){
     this->tl = tl;

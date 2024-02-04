@@ -26,7 +26,15 @@
 		"tuple": "cpp",
 		"type_traits": "cpp",
 		"utility": "cpp",
-		"typeinfo": "cpp"
+		"typeinfo": "cpp",
+		"cwctype": "cpp",
+		"unordered_map": "cpp",
+		"vector": "cpp",
+		"fstream": "cpp",
+		"istream": "cpp",
+		"ostream": "cpp",
+		"sstream": "cpp",
+		"streambuf": "cpp"
 	},
 	"C_Cpp.default.compilerPath": "",
 	"files.exclude": {
