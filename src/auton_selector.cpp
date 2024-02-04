@@ -2,29 +2,29 @@
 
 AutonSelector::AutonSelector(){};
 
-void AutonSelector::addAuton(void (*auton)(), string name) {
+AutonSelector& AutonSelector::addAuton(void (*auton)(), string name) {
     autons[autonCount] = auton;
     names[autonCount] = name;
     autonCount++;
+    return *this;
 }
 
-void AutonSelector::setCompetitionMode(bool competition) {
+AutonSelector& AutonSelector::setCompetitionMode(bool competition) {
     this->competition = competition;
+    return *this;
 }
 
-void AutonSelector::setDriver(void (*driver)()) {
+AutonSelector& AutonSelector::setDriver(void (*driver)()) {
     this->driver = driver;
+    return *this;
 }
 
-void AutonSelector::run(vex::controller* controller, vex::brain* Brain) {
+AutonSelector& AutonSelector::run(vex::controller* controller, vex::brain* Brain) {
     int selected = 0;
     bool draw = true;
 
     int lastPress = 0;
     const int delay = 120; // How long a button must be held before it repeats
-
-    // Three items / page
-    // infinate number of pages, use mod to get the page & item
 
     while (true){
         if (draw){
@@ -80,4 +80,6 @@ void AutonSelector::run(vex::controller* controller, vex::brain* Brain) {
             return;
         }
     }
+
+    return *this;
 }
