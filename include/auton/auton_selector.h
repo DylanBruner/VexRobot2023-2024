@@ -6,7 +6,7 @@ using namespace std;
 class AutonSelector {
     public:
         AutonSelector();
-        AutonSelector& run(vex::controller* controller, vex::brain* Brain);
+        void run(vex::controller* controller, vex::brain* Brain);
         AutonSelector& addAuton(void (*auton)(), string name);
         AutonSelector& setCompetitionMode(bool competition);
         AutonSelector& setDriver(void (*driver)());

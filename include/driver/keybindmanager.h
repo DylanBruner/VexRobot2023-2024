@@ -155,6 +155,10 @@ class KeybindManager {
                 }
             }
 
+            if (keybind.pressed()) {
+                keybind.lastState = true;
+            }
+
             keybinds.push_back(keybind);
             return *this;
         }

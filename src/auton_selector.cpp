@@ -19,7 +19,7 @@ AutonSelector& AutonSelector::setDriver(void (*driver)()) {
     return *this;
 }
 
-AutonSelector& AutonSelector::run(vex::controller* controller, vex::brain* Brain) {
+void AutonSelector::run(vex::controller* controller, vex::brain* Brain) {
     int selected = 0;
     bool draw = true;
 
@@ -80,6 +80,4 @@ AutonSelector& AutonSelector::run(vex::controller* controller, vex::brain* Brain
             return;
         }
     }
-
-    return *this;
 }
