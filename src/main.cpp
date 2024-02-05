@@ -17,6 +17,7 @@ int main() {
     LeftMotors.setReversed(true);
     LeftMotors.setStopping(brake);
     RightMotors.setStopping(brake);
+    intakeMotor.setStopping(hold);
     setFrontArms(false);
 
     MotorMonitor monitor = MotorMonitor();

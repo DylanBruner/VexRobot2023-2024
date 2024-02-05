@@ -32,22 +32,28 @@ int getDrivePower(){
     return avgEfficiency <= 5 ? 100 : 75;
 }
 
+double getTemp(){
+    return (leftFront.temperature(percent) + leftMiddle.temperature(percent) + leftBack.temperature(percent) + 
+            rightFront.temperature(percent) + rightMiddle.temperature(percent) + rightBack.temperature(percent)) / 6;
+}
+
 int lastBatteryPercentage = 0;
 int lastDriveMode = -1;
 int lastOutputPower = 0;
+int lastTemp = 0;
 void screenTick(){
-    if (lastBatteryPercentage != Brain.Battery.capacity() || lastDriveMode != drivePowerMode || lastOutputPower != getDrivePower()){
+    if (driveMode != DM_DRIVER) return;
+
+    if (lastBatteryPercentage != Brain.Battery.capacity() || lastDriveMode != drivePowerMode || lastOutputPower != getDrivePower() || lastTemp != getTemp()){
         lastBatteryPercentage = Brain.Battery.capacity();
         lastDriveMode = drivePowerMode;
         lastOutputPower = getDrivePower();
-
-        printf("Battery: %d%%\n", Brain.Battery.capacity());
-        printf("Drive Mode: %d\n", drivePowerMode);
+        lastTemp = getTemp();
 
         Controller1.Screen.setCursor(1, 1);
-        Controller1.Screen.print("Battery: %d%%     ", Brain.Battery.capacity());
+        Controller1.Screen.print("Battery: %d%% | [%.0fC]    ", Brain.Battery.capacity(), Brain.Battery.temperature(celsius));
         Controller1.Screen.setCursor(2, 1);
-        Controller1.Screen.print("Torque: %s (%d%%)     ", drivePowerMode == 0 ? "Auto" : "Full", getDrivePower());
+        Controller1.Screen.print("D: %s (%d%%) [%.0f%%]    ", drivePowerMode == 0 ? "Auto" : "Full", getDrivePower(), getTemp());
     }
 }
 
@@ -141,7 +147,9 @@ void driver(){
     // Turbo Mode ===========================================================
     keybindManager.registerKeybinding(KeyBinding().onPressed([](){
         drivePowerMode = !drivePowerMode;
-        Controller1.rumble(".-");
+        if (drivePowerMode == 1) Controller1.rumble("-");
+        else Controller1.rumble(".");
+
     }).addCondition(Controller1.ButtonRight, true).setName("Turbo Mode"));
 
     LeftMotors.setStopping(brake);
