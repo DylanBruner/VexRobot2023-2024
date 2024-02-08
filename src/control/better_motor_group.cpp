@@ -1,4 +1,4 @@
-#include "better_motor_group.h"
+#include "control/better_motor_group.h"
 
 void BetterMotorGroup::spin(directionType dir, double velocity, velocityUnits units) {
     for (int i = 0; i < 10; i++) {

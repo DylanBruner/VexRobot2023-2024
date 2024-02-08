@@ -1,5 +1,5 @@
 #include <vex.h>
-#include "better_motor_group.h"
+#include "control/better_motor_group.h"
 
 #pragma once
 

@@ -1,6 +1,6 @@
 #include "vex.h"
 #include "config.h"
-#include "robocontrol.h"
+#include "control/robocontrol.h"
 #include "driver/keybindmanager.h"
 #include "util.h"
 #include <cstdlib>

@@ -1,5 +1,5 @@
 #include "vex.h"
-#include "robocontrol.h"
+#include "control/robocontrol.h"
 #include "auton/auton_selector.h"
 #include "auton/autons/autons.h"
 #include "driver/opcontrol.h"
