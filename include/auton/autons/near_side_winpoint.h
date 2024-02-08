@@ -47,5 +47,5 @@ void nearSideWinpoint(){
     }
     Controller1.rumble("...");
     stopDrive();
-    drive(0, 0.25, 6);
+    drive(0, 0.2, 6);
 }

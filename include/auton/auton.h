@@ -59,7 +59,7 @@ double lastSpeed = 0;
 int autonDriveTask(){
     while (true){
         task::sleep(10);
-        if (driveMode == DM_DISABLED) {
+        if (driveMode == DM_DISABLED || driveMode == DM_DRIVER) {
             Brain.Screen.setCursor(5, 1);
             Brain.Screen.print("Heading: %f   ", Inertial.rotation());
             continue;
@@ -75,8 +75,10 @@ int autonDriveTask(){
             double l_error = leftFront.position(degrees) - leftTarget;
             double r_error = rightFront.position(degrees) - rightTarget;
 
-            l_out = l_error * driveKP;
-            r_out = r_error * driveKP;
+            double percent = fmax(0.35, ((fabs(l_error / leftTarget) * 0.9) + (fabs(r_error / rightTarget) * 0.9)) / 2);
+            
+            l_out = l_error * driveKP * percent;
+            r_out = r_error * driveKP * percent;
 
             drivePower = targetPower;
         } else if (DM_TURN){

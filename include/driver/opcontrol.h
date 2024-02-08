@@ -32,9 +32,14 @@ int getDrivePower(){
     return avgEfficiency <= 5 ? 100 : 75;
 }
 
+int getActiveMotors(){
+    return leftFront.installed() + leftMiddle.installed() + leftBack.installed() + 
+           rightFront.installed() + rightMiddle.installed() + rightBack.installed();
+}
+
 double getTemp(){
-    return (leftFront.temperature(percent) + leftMiddle.temperature(percent) + leftBack.temperature(percent) + 
-            rightFront.temperature(percent) + rightMiddle.temperature(percent) + rightBack.temperature(percent)) / 6;
+    return (leftFront.temperature(celsius) + leftMiddle.temperature(celsius) + leftBack.temperature(celsius) + 
+            rightFront.temperature(celsius) + rightMiddle.temperature(celsius) + rightBack.temperature(celsius)) / getActiveMotors();
 }
 
 int lastBatteryPercentage = 0;
@@ -53,7 +58,7 @@ void screenTick(){
         Controller1.Screen.setCursor(1, 1);
         Controller1.Screen.print("Battery: %d%% | [%.0fC]    ", Brain.Battery.capacity(), Brain.Battery.temperature(celsius));
         Controller1.Screen.setCursor(2, 1);
-        Controller1.Screen.print("D: %s (%d%%) [%.0f%%]    ", drivePowerMode == 0 ? "Auto" : "Full", getDrivePower(), getTemp());
+        Controller1.Screen.print("D: %s (%d%%) [%.0fC]    ", drivePowerMode == 0 ? "Auto" : "Full", getDrivePower(), getTemp());
     }
 }
 
@@ -149,7 +154,6 @@ void driver(){
         drivePowerMode = !drivePowerMode;
         if (drivePowerMode == 1) Controller1.rumble("-");
         else Controller1.rumble(".");
-
     }).addCondition(Controller1.ButtonRight, true).setName("Turbo Mode"));
 
     LeftMotors.setStopping(brake);
@@ -159,11 +163,19 @@ void driver(){
         driveMode = DM_DRIVER;
 
         int power = getDrivePower();
-
         LeftMotors.setMaxTorque(power, percent);
         RightMotors.setMaxTorque(power, percent);
 
-        RightMotors.spin(fwd, scaleDrive(Controller1.Axis2.position(), DRIVE_SCALE_FACTOR) / 100 * 12, volt);
-        LeftMotors.spin(fwd, scaleDrive(Controller1.Axis3.position(), DRIVE_SCALE_FACTOR) / 100 * 12, volt);
+        if (fabs(Controller1.Axis2.position()) >= 2){
+            RightMotors.spin(fwd, scaleDrive(Controller1.Axis2.position(), DRIVE_SCALE_FACTOR) / 100 * 12, volt);
+        } else {
+            RightMotors.stop(brake);
+        }
+
+        if (fabs(Controller1.Axis3.position()) >= 2){
+            LeftMotors.spin(fwd, scaleDrive(Controller1.Axis3.position(), DRIVE_SCALE_FACTOR) / 100 * 12, volt);
+        } else {
+            LeftMotors.stop(brake);
+        }
     }
 }

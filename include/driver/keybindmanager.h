@@ -75,13 +75,11 @@ class KeyBinding {
             return *this;
         }
 
-        // Add a condition with a custom function
         KeyBinding& addCondition(std::function<bool()> condition) {
             conditions.emplace_back(condition);
             return *this;
         }
 
-        // Add a condition
         KeyBinding& addCondition(KeybindCondition condition) {
             conditions.push_back(condition);
             return *this;
