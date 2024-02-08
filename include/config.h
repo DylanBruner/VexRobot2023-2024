@@ -1,5 +1,4 @@
 #include <vex.h>
-
 #include "better_motor_group.h"
 
 #pragma once
@@ -49,32 +48,32 @@ const double turnKD = 0.1;
 // =============================================================================
 // =============================================================================
 
-brain       Brain;
-controller  Controller1;
+extern brain       Brain;
+extern controller  Controller1;
 
 // Drive motors
-int32_t rightPorts[] = {RIGHT_FRONT, RIGHT_MIDDLE, RIGHT_BACK};
-int32_t leftPorts[] = {LEFT_FRONT, LEFT_MIDDLE, LEFT_BACK};
+extern int32_t rightPorts[];
+extern int32_t leftPorts[];
 
-motor leftFront = motor(LEFT_FRONT, gearSetting::ratio6_1);
-motor leftMiddle = motor(LEFT_MIDDLE, gearSetting::ratio6_1);
-motor leftBack = motor(LEFT_BACK, gearSetting::ratio6_1);
-motor rightFront = motor(RIGHT_FRONT, gearSetting::ratio6_1);
-motor rightMiddle = motor(RIGHT_MIDDLE, gearSetting::ratio6_1);
-motor rightBack = motor(RIGHT_BACK, gearSetting::ratio6_1);
-BetterMotorGroup RightMotors(rightPorts, 3);
-BetterMotorGroup LeftMotors(leftPorts, 3);
+extern motor leftFront;
+extern motor leftMiddle;
+extern motor leftBack;
+extern motor rightFront;
+extern motor rightMiddle;
+extern motor rightBack;
+extern BetterMotorGroup RightMotors;
+extern BetterMotorGroup LeftMotors;
 
-motor flywheelMotor = motor(FLYWHEEL_PORT, gearSetting::ratio6_1, true);
-motor intakeMotor = motor(INTAKE_PORT, gearSetting::ratio6_1, true);
+extern motor flywheelMotor;
+extern motor intakeMotor;
 
 // Sensors
-inertial Inertial(INERTIAL_PORT);
+extern inertial Inertial;
 
 // Three wire ports
-digital_out FrontArmsOne(Brain.ThreeWirePort.F);
-digital_out BackArm(Brain.ThreeWirePort.E);
+extern digital_out FrontArmsOne;
+extern digital_out BackArm;
 
-digital_out FrontArmsTwo(Brain.ThreeWirePort.D);
-digital_out LiftPowerDownPiston(Brain.ThreeWirePort.G);
-digital_out LiftUpPiston(Brain.ThreeWirePort.H);
+extern digital_out FrontArmsTwo;
+extern digital_out LiftPowerDownPiston;
+extern digital_out LiftUpPiston;

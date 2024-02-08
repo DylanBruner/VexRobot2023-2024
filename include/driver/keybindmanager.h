@@ -6,6 +6,8 @@
 
 #pragma once
 
+using namespace std;
+
 class KeybindCondition {
     private:
         enum ConditionType {
@@ -163,4 +165,4 @@ class KeybindManager {
 };
 
 
-static KeybindManager keybindManager = KeybindManager();
+extern KeybindManager keybindManager;

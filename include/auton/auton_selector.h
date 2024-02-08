@@ -1,12 +1,15 @@
 #include <string>
 #include "vex.h"
+#include "config.h"
+
+#pragma once
 
 using namespace std;
 
 class AutonSelector {
     public:
         AutonSelector();
-        void run(vex::controller* controller, vex::brain* Brain);
+        void run();
         AutonSelector& addAuton(void (*auton)(), string name);
         AutonSelector& setCompetitionMode(bool competition);
         AutonSelector& setDriver(void (*driver)());

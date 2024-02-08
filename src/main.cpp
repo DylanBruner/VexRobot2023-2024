@@ -1,6 +1,6 @@
 #include "vex.h"
-#include "auton/auton_selector.h"
 #include "robocontrol.h"
+#include "auton/auton_selector.h"
 #include "auton/autons/autons.h"
 #include "driver/opcontrol.h"
 #include "driver/keybindmanager.h"
@@ -23,7 +23,7 @@ int main() {
     MotorMonitor monitor = MotorMonitor();
     monitor.start();
 
-    AutonSelector selector = AutonSelector()
+    AutonSelector()
         .setDriver(driver)
         .addAuton(driver, "Driver Control")
         .addAuton([]{}, "No Auton")
@@ -32,7 +32,6 @@ int main() {
         .addAuton(farSideWinpoint, "FarSide WP")
         .addAuton(skillsAuton, "Skills Auton")
         .addAuton(justGoForward, "Drive Forward")
-        .addAuton(goBackwardsAuton, "JIC Backwards");
-
-    selector.run(&Controller1, &Brain);
+        .addAuton(goBackwardsAuton, "JIC Backwards")
+        .run();
 }
