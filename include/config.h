@@ -71,9 +71,11 @@ extern motor intakeMotor;
 extern inertial Inertial;
 
 // Three wire ports
-extern digital_out FrontArmsOne;
+extern digital_out FrontLeftArmDown;
+extern digital_out FrontLeftArmUp;
+extern digital_out FrontRightArmDown;
+extern digital_out FrontRightArmUp;
 extern digital_out BackArm;
 
-extern digital_out FrontArmsTwo;
 extern digital_out LiftPowerDownPiston;
 extern digital_out LiftUpPiston;

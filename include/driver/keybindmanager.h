@@ -18,14 +18,14 @@ class KeybindCondition {
         ConditionType type;
         controller::button key;
         bool state;
-        std::function<bool()> customCondition;
+        function<bool()> customCondition;
 
     public:
         // Constructor for key conditions
         KeybindCondition(controller::button k, bool s) : type(KEY_CONDITION), key(k), state(s) {}
 
         // Constructor for custom conditions
-        KeybindCondition(std::function<bool()> condition) : type(CUSTOM_CONDITION), customCondition(condition) {}
+        KeybindCondition(function<bool()> condition) : type(CUSTOM_CONDITION), customCondition(condition) {}
 
         bool isMet() const {
             switch (type) {
@@ -43,17 +43,17 @@ class KeyBinding {
     friend class KeybindManager;
 
     private:
-        std::function<void()> onPressedCallback;
-        std::function<void()> onReleasedCallback;
-        std::function<void()> onPressingCallback;
+        function<void()> onPressedCallback;
+        function<void()> onReleasedCallback;
+        function<void()> onPressingCallback;
 
-        std::vector<KeybindCondition> conditions;
+        vector<KeybindCondition> conditions;
         string name = "";
         bool lastState = false;
 
         void poll() {
             if (name == "") {
-                throw std::runtime_error("Keybinding name not set");
+                throw runtime_error("Keybinding name not set");
             }
 
             bool currentState = pressed();
@@ -96,17 +96,17 @@ class KeyBinding {
             return true;
         }
 
-        KeyBinding& onPressed(std::function<void()> onPressed) {
+        KeyBinding& onPressed(function<void()> onPressed) {
             onPressedCallback = onPressed;
             return *this;
         }
 
-        KeyBinding& onReleased(std::function<void()> onReleased) {
+        KeyBinding& onReleased(function<void()> onReleased) {
             onReleasedCallback = onReleased;
             return *this;
         }
 
-        KeyBinding& onPressing(std::function<void()> onPressing) {
+        KeyBinding& onPressing(function<void()> onPressing) {
             onPressingCallback = onPressing;
             return *this;
         }
@@ -144,7 +144,7 @@ class KeybindManager {
 
         KeybindManager& registerKeybinding(KeyBinding keybind) {
             if (keybind.name == "") {
-                throw std::runtime_error("Keybinding name not set");
+                throw runtime_error("Keybinding name not set");
             }
             
             // if the name is already taken, replace it
@@ -163,6 +163,5 @@ class KeybindManager {
             return *this;
         }
 };
-
 
 extern KeybindManager keybindManager;

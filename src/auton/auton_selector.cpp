@@ -23,6 +23,8 @@ void AutonSelector::run() {
     const int repeatDelay = 120;
 
     while (true){
+        wait(10, msec);
+
         if (draw){
             draw = false;
             Controller1.Screen.clearScreen();

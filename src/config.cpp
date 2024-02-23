@@ -29,9 +29,11 @@ motor intakeMotor = motor(INTAKE_PORT, gearSetting::ratio6_1, true);
 inertial Inertial(INERTIAL_PORT);
 
 // Three wire ports
-digital_out FrontArmsOne(Brain.ThreeWirePort.F);
-digital_out BackArm(Brain.ThreeWirePort.E);
+digital_out BackArm(Brain.ThreeWirePort.C); // 
+digital_out FrontLeftArmDown(Brain.ThreeWirePort.G); //
+digital_out FrontLeftArmUp(Brain.ThreeWirePort.H); //
+digital_out FrontRightArmDown(Brain.ThreeWirePort.D); // 
+digital_out FrontRightArmUp(Brain.ThreeWirePort.B); //
 
-digital_out FrontArmsTwo(Brain.ThreeWirePort.D);
-digital_out LiftPowerDownPiston(Brain.ThreeWirePort.G);
-digital_out LiftUpPiston(Brain.ThreeWirePort.H);
+digital_out LiftPowerDownPiston(Brain.ThreeWirePort.E);
+digital_out LiftUpPiston(Brain.ThreeWirePort.F);

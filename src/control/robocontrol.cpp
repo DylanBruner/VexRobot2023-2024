@@ -1,8 +1,8 @@
 #include "control/robocontrol.h"
 
 void setFrontArms(bool state){
-    FrontArmsOne.set(state);
-    FrontArmsTwo.set(!state);
+    setLeftArm(state);
+    setRightArm(state);
 }
 
 void liftPowerUp(){
@@ -17,4 +17,14 @@ void idleLiftDown(){
 void powerLiftDown(){
     LiftUpPiston.set(false);
     LiftPowerDownPiston.set(false);
+}
+
+void setLeftArm(bool state){
+    FrontLeftArmDown.set(state);
+    FrontLeftArmUp.set(!state);
+}
+
+void setRightArm(bool state){
+    FrontRightArmDown.set(state);
+    FrontRightArmUp.set(!state);
 }
