@@ -133,13 +133,13 @@ class KeybindManager {
             return 0;
         }
 
-        static int internalKeybindTaskWrapper(void* keybindManagerInstance) {
+        static int backgroundTaskWrapper(void* keybindManagerInstance) {
             return static_cast<KeybindManager*>(keybindManagerInstance)->internalKeybindTask();
         }
 
     public:
         KeybindManager() {
-            task t(internalKeybindTaskWrapper, this);
+            task t(backgroundTaskWrapper, this);
         }
 
         KeybindManager& registerKeybinding(KeyBinding keybind) {

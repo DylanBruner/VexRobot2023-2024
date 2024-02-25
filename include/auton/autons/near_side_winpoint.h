@@ -5,13 +5,14 @@
 #pragma once
 
 void nearSideWinpoint(){
+    // intakeMotor.spinFor(-200, degrees, 100, velocityUnits::pct); // drop the intake
     // setFrontArms(false);
 
     // Intake a ball
     drive(0.5, 0.5, 8);
 
     intakeMotor.setVelocity(100, pct);
-    intakeMotor.spinFor(-300, degrees, false);
+    intakeMotor.spinFor(-500, degrees, false);
     wait(0.2, seconds);
 
     // get the ball out of the corner
@@ -21,9 +22,8 @@ void nearSideWinpoint(){
     drive(-0.25, 0.25, 7);
     BackArm.set(false);
 
-
     // go out-take the ball into the goal
-    drive(0.5, -0.5, 6);
+    drive(0.6, -0.6, 6);
     drive(0.75, 0.75, 6);
     drive(-0.05, 0.15, 6);
 
@@ -33,7 +33,7 @@ void nearSideWinpoint(){
 
 
     // go turn around to touch the bar
-    drive(-1, -1, 6);
+    drive(-1.2, -1.2, 6);
     // drive(1, -1, 6);
     drive(-1, 1, 6);
     drive(-1, -1, 6);

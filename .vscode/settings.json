@@ -34,7 +34,9 @@
 		"istream": "cpp",
 		"ostream": "cpp",
 		"sstream": "cpp",
-		"streambuf": "cpp"
+		"streambuf": "cpp",
+		"string": "cpp",
+		"iostream": "cpp"
 	},
 	"C_Cpp.default.compilerPath": "",
 	"files.exclude": {

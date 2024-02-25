@@ -5,3 +5,4 @@
 #include "auton/autons/go_backwards_auton.h"
 #include "auton/autons/goofy_auton.h"
 #include "auton/autons/skills_auton.h"
+#include "auton/autons/far_side_points.h"

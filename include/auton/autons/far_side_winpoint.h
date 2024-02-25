@@ -5,6 +5,34 @@
 #pragma once
 
 void farSideWinpoint(){
+    // intakeMotor.spinFor(-200, degrees, 100, velocityUnits::pct);
+
+    // Intake a ball
+    drive(0.5, 0.5, 8);
+
+    intakeMotor.setVelocity(100, pct);
+    intakeMotor.spinFor(-500, degrees, false);
+    wait(0.2, seconds);
+
+    // go put it in the goal
+    drive(0.7, 0.7, 12);
+    drive(-0.3, 0.3, 12);
+    drive(1, 1, 12);
+    drive(0.3, -0.3, 12);
+    drive(0.8, 0.8, 12);
+    drive(0.5, -0.5, 12);
+    drive(0.45, 0.45, 12);
+    intakeMotor.spinFor(1800, degrees, 100, velocityUnits::pct);
+    drive(0.6, 0.6, 24);
+    intakeMotor.spinFor(3000, degrees, 100, velocityUnits::pct, false);
+    drive(-0.3, -0.3, 12);
+
+    // fuck up the other balls
+    BackArm.set(true);
+    drive(0.5, -0.5, 12);
+    drive(1, 1, 12);
+
+    return;
 
     // grab the middle-middle ball
     drive(2.5, 2.5, 12);

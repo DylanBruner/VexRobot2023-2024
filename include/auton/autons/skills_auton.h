@@ -5,6 +5,8 @@
 #pragma once
 
 void skillsAuton(){
+    intakeMotor.spinFor(200, degrees, 100, velocityUnits::pct); // drop the intake
+
     setFrontArms(false);
 
     // Intake a ball
@@ -15,22 +17,25 @@ void skillsAuton(){
     intakeMotor.spinFor(-800, degrees, true);
     wait(0.2, seconds);
 
+    intakeMotor.spin(reverse, 12, voltageUnits::volt);
+
     // turn to shoot
     drive(0.35, -0.35, 6);
     drive(-0.7, -0.7, 5);
     flywheelMotor.spin(reverse, 11.5, volt);
     drive(0.07, -0.03, 6);
 
-    wait(33, seconds); // 40 seconds
+    wait(33, seconds); // 33 seconds
     Controller1.rumble(".......");
     flywheelMotor.stop();
+    intakeMotor.stop();
 
     drive(0.5, 0.8, 6);
     drive(1.5, 1.5, 6);
 
     drive(-0.24, 0.24, 6);
     drive(1, 1, 6);
-    setFrontArms(true);
+    // setFrontArms(true);
     drive(-0.5, 0.5, 6);
     intakeMotor.spinFor(1800, degrees, false);
     drive(0.5, 0.5, 12);
@@ -70,10 +75,11 @@ void skillsAuton(){
     drive(-0.35, 0, 6);
     drive(1, 1, 6);
 
+
     drive(-1, -1, 6);
-    drive(0.7, -0.7, 6);
-    drive(0.5, 0.5, 6);
-    drive(-0.5, 0.5, 6);
+    drive(-0.33, 0.33, 12);
+    drive(0.5, 0.5, 12);
+    drive(0.5, -0.5, 6);
     drive(1, 1, 12);
     drive(-1, -1, 12);
 }

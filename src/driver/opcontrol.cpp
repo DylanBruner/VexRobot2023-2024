@@ -81,6 +81,8 @@ void driver(){
     stopDrive(); // Disable auton drive task
     task t(driveHelper); // Start driver control task
 
+    intakeMotor.spinFor(200, degrees, 100, velocityUnits::pct); // drop the intake
+
     // Lift Up / Idle Lift Down ==============================================
     keybindManager.registerKeybinding(KeyBinding().onPressed([](){
         liftUp = !liftUp;
@@ -151,8 +153,14 @@ void driver(){
     LeftMotors.setStopping(brake);
     RightMotors.setStopping(brake);
 
+    Brain.Timer.reset();
+
     while(true){
         driveMode = DM_DRIVER;
+
+        if (Brain.Timer.time(timeUnits::msec) > 45000){
+            drivePowerMode = 1;
+        }
 
         int power = getDrivePower();
         LeftMotors.setMaxTorque(power, percent);

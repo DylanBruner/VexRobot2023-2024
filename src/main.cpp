@@ -6,6 +6,7 @@
 #include "driver/keybindmanager.h"
 #include "safety/motormon.h"
 #include "config.h"
+#include "funny/movieplayer.h"
 #include <math.h>
 
 using namespace vex;
@@ -23,24 +24,17 @@ int main() {
     MotorMonitor monitor = MotorMonitor();
     monitor.start();
 
-    double startTime = Brain.timer(sec);
-    // nearSideWinpoint();
-    // driver();
-    // nearSideWinpoint();
-    double endTime = Brain.timer(sec);
-    printf("Time: %f\n", endTime - startTime);
-    driver();
-
-    // AutonSelector()
-    //     .setDriver(driver)
-    //     .addAuton(driver, "Driver Control")
-    //     .addAuton([]{}, "No Auton")
-    //     .addAuton(nearSideWinpoint, "NearSide WP")
-    //     .addAuton(nearSidePoints, "NearSide Points")
-    //     .addAuton(farSideWinpoint, "FarSide WP")
-    //     .addAuton(skillsAuton, "Skills Auton")
-    //     .addAuton(justGoForward, "Drive Forward")
-    //     .addAuton(goBackwardsAuton, "JIC Backwards")
-    //     .addAuton(goofyAuton, "Goofy Auton")
-    //     .run();
+    AutonSelector()
+        .setDriver(driver)
+        .addAuton(driver, "Driver Control")
+        .addAuton([]{}, "No Auton")
+        .addAuton(nearSideWinpoint, "NearSide WP")
+        .addAuton(nearSidePoints, "NearSide Points")
+        .addAuton(farSideWinpoint, "FarSide WP")
+        .addAuton(farSidePoints, "FarSide Points")
+        .addAuton(skillsAuton, "Skills Auton")
+        .addAuton(justGoForward, "Drive Forward")
+        .addAuton(goBackwardsAuton, "JIC Backwards")
+        .addAuton(goofyAuton, "Goofy Auton")
+        .run();
 }
